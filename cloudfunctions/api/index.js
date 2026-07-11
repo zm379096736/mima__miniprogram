@@ -1,5 +1,6 @@
 const cloud = require('wx-server-sdk');
 const https = require('https');
+const { isAdminOpenid, assertAdmin } = require('./adminAuth');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -7,7 +8,6 @@ const db = cloud.database();
 const _ = db.command;
 const HISTORY_RESET_VERSION = 3;
 const LEGACY_SEED_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'];
-const ADMIN_OPENIDS = ['o6zAJszkWm_0D63PwmVC2hCZw_Yc'];
 
 function emptyVotes() {
   return { mvp: {}, touch: {} };
@@ -15,10 +15,6 @@ function emptyVotes() {
 
 function emptyHonors() {
   return { mvp: null, touch: null };
-}
-
-function isAdminOpenid(openid) {
-  return ADMIN_OPENIDS.includes(openid);
 }
 
 function needsHistoryReset(room) {
@@ -599,9 +595,7 @@ async function leaveRoom(openid) {
 }
 
 async function resetRoomSignups(openid) {
-  if (!isAdminOpenid(openid)) {
-    throw new Error('\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u91cd\u5f00\u62a5\u540d');
-  }
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u91cd\u5f00\u62a5\u540d');
   const room = await getRoomDoc();
   return updateRoom({
     ...room,
@@ -614,7 +608,8 @@ async function resetRoomSignups(openid) {
   });
 }
 
-async function markPigeons(pigeonIds) {
+async function markPigeons(openid, pigeonIds) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u8bb0\u5f55\u9e3d\u5b50');
   const selected = new Set(uniqueIds(pigeonIds));
   if (!selected.size) {
     throw new Error('\u8bf7\u5148\u9009\u62e9\u8981\u8bb0\u5f55\u7684\u9e3d\u5b50');
@@ -849,7 +844,7 @@ exports.main = async (event) => {
     return voteHonor(openid, event.honorType, event.playerId);
   }
   if (action === 'markPigeons') {
-    return markPigeons(event.pigeonIds || []);
+    return markPigeons(openid, event.pigeonIds || []);
   }
   if (action === 'previewImportedMatch') {
     return previewImportedMatch(event.matchId);
