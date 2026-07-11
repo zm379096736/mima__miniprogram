@@ -1,0 +1,7 @@
+.primary-btn {
+  margin-top: 16rpx;
+}
+
+.player-row.panel {
+  margin-bottom: 14rpx;
+}

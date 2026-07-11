@@ -1,0 +1,30 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/room/room",
+    "pages/rank/rank",
+    "pages/match/match",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarTitleText": "\u79d8\u9a6c\u5185\u6218",
+    "navigationBarBackgroundColor": "#111318",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#111318"
+  },
+  "tabBar": {
+    "color": "#8d98a8",
+    "selectedColor": "#f1c40f",
+    "backgroundColor": "#14171d",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/home/home", "text": "\u9996\u9875", "iconPath": "images/tab.png", "selectedIconPath": "images/tab.png" },
+      { "pagePath": "pages/room/room", "text": "\u5f00C", "iconPath": "images/tab.png", "selectedIconPath": "images/tab.png" },
+      { "pagePath": "pages/rank/rank", "text": "\u699c\u5355", "iconPath": "images/tab.png", "selectedIconPath": "images/tab.png" },
+      { "pagePath": "pages/match/match", "text": "\u6218\u7ee9", "iconPath": "images/tab.png", "selectedIconPath": "images/tab.png" },
+      { "pagePath": "pages/profile/profile", "text": "\u6211\u7684", "iconPath": "images/tab.png", "selectedIconPath": "images/tab.png" }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

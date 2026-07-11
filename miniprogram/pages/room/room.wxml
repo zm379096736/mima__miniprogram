@@ -1,0 +1,66 @@
+﻿<view class="screen">
+  <view class="hero">
+    <view class="eyebrow">AUTO BALANCE</view>
+    <view class="title">今日秘马开 C</view>
+    <view class="subtitle">先报名，再按选手积分和偏好位置自动分队。每队都会有 1、2、3、4、5 号位。</view>
+  </view>
+
+  <view class="section panel signup-panel">
+    <view class="section-title">
+      <text>我的报名</text>
+      <text class="badge {{signedUp ? 'blue' : ''}}">{{signupText}}</text>
+    </view>
+    <view class="subtitle">当前以“我的”页选手卡片作为报名身份，后续接微信登录后会绑定到本人。</view>
+    <button wx:if="{{!signedUp}}" class="primary-btn" bindtap="joinTodayRoom">我要报名</button>
+    <button wx:else class="danger-btn" bindtap="leaveTodayRoom">取消报名</button>
+  </view>
+
+  <view class="section panel">
+    <view class="section-title">
+      <text>报名池 {{signups.length}} / 10</text>
+      <text class="badge">分差 {{scoreGap}}</text>
+    </view>
+    <button class="primary-btn" bindtap="autoBalance">系统自动分队</button>
+  </view>
+
+  <view class="section">
+    <view class="section-title">报名选手</view>
+    <view wx:for="{{signups}}" wx:key="id" class="player-row panel">
+      <view>
+        <view class="player-name">{{item.name}}</view>
+        <view class="player-meta">偏好 {{item.positionText}} / {{item.tier}}</view>
+      </view>
+      <text class="badge">{{item.score}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{teams}}" class="section">
+    <view class="team-card radiant">
+      <view class="team-head">
+        <text>天辉</text>
+        <text>{{teams.radiant.totalScore}} 分</text>
+      </view>
+      <view wx:for="{{teams.radiant.players}}" wx:key="id" class="player-row">
+        <view>
+          <view class="player-name">{{item.name}}</view>
+          <view class="player-meta">{{item.tier}} / 偏好 {{item.positionText}}</view>
+        </view>
+        <text class="badge blue">{{item.assignedPosition}}号位</text>
+      </view>
+    </view>
+
+    <view class="team-card dire">
+      <view class="team-head">
+        <text>夜魇</text>
+        <text>{{teams.dire.totalScore}} 分</text>
+      </view>
+      <view wx:for="{{teams.dire.players}}" wx:key="id" class="player-row">
+        <view>
+          <view class="player-name">{{item.name}}</view>
+          <view class="player-meta">{{item.tier}} / 偏好 {{item.positionText}}</view>
+        </view>
+        <text class="badge red">{{item.assignedPosition}}号位</text>
+      </view>
+    </view>
+  </view>
+</view>
