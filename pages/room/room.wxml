@@ -18,6 +18,14 @@
     </picker>
   </view>
 
+  <view class="section panel identity-panel">
+    <view class="section-title">
+      <text>当前身份</text>
+      <text class="{{isAdmin ? 'badge red' : 'badge'}}">{{isAdmin ? '管理员' : '普通成员'}}</text>
+    </view>
+    <view wx:if="{{!isAdmin}}" class="subtitle">如果你应该是管理员，请将此 OpenID 加入管理员名单：{{currentOpenid}}</view>
+  </view>
+
   <view wx:if="{{isAdmin}}" class="section panel admin-panel">
     <view class="section-title">
       <text>管理员</text>
@@ -71,7 +79,7 @@
     </view>
   </view>
 
-  <view wx:if="{{pigeonCandidates.length}}" class="section panel">
+  <view wx:if="{{isAdmin && pigeonCandidates.length}}" class="section panel">
     <view class="section-title">
       <text>鸽子统计</text>
       <text class="badge">{{selectedPigeonIds.length}} 人</text>

@@ -1,7 +1,10 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { resetRoomForNewRound, isAdminOpenid } = require('../utils/adminRoom');
+const { adminOpenids } = require('../utils/config');
 
 test('resetRoomForNewRound clears signups waitlist teams and votes', () => {
   const room = {
@@ -29,7 +32,16 @@ test('resetRoomForNewRound clears signups waitlist teams and votes', () => {
   });
 });
 
-test('isAdminOpenid checks configured admin openids', () => {
-  assert.equal(isAdminOpenid('admin-a', ['admin-a']), true);
-  assert.equal(isAdminOpenid('player-a', ['admin-a']), false);
+test('all configured openids are recognized as administrators', () => {
+  adminOpenids.forEach((openid) => {
+    assert.equal(isAdminOpenid(openid, adminOpenids), true);
+  });
+  assert.equal(isAdminOpenid('ordinary-player', adminOpenids), false);
+});
+
+test('room page hides pigeon controls from non administrators', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../pages/room/room.wxml'), 'utf8');
+
+  assert.match(source, /wx:if="\{\{isAdmin\}\}" class="section panel admin-panel"/);
+  assert.match(source, /wx:if="\{\{isAdmin && pigeonCandidates\.length\}\}"/);
 });

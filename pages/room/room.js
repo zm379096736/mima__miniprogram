@@ -52,6 +52,7 @@ function resolveAdmin(data) {
 Page({
   data: {
     currentPlayer: {},
+    currentOpenid: '',
     isAdmin: false,
     room: {},
     startTime: '21:30',
@@ -89,6 +90,7 @@ Page({
 
       this.setData({
         currentPlayer: data.currentPlayer,
+        currentOpenid: data.openid || data.currentPlayer.openid || data.currentPlayer.id || '',
         isAdmin: resolveAdmin(data),
         room: data.room,
         startTime: data.room.startTime || '21:30',
@@ -159,6 +161,10 @@ Page({
   },
 
   async resetSignups() {
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '只有管理员可以操作', icon: 'none' });
+      return;
+    }
     wx.showModal({
       title: '重开报名',
       content: '确定清空正式报名、候补名单和当前分队，重新开始新一轮报名吗？',
@@ -184,6 +190,10 @@ Page({
   },
 
   async markPigeons() {
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '只有管理员可以操作', icon: 'none' });
+      return;
+    }
     if (!this.data.selectedPigeonIds.length) {
       wx.showToast({ title: '先选择鸽子选手', icon: 'none' });
       return;
