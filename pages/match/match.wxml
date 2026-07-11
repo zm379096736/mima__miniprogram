@@ -1,24 +1,92 @@
 <view class="screen">
   <view class="hero">
     <view class="eyebrow">ADMIN SCORE</view>
-    <view class="title">秘马战绩录入</view>
-    <view class="subtitle">第一版提供快速模拟录入：默认天辉获胜、天辉一号位 MVP、夜魇随机吃一条压力扣分。</view>
+    <view class="title">战绩录入</view>
+    <view class="subtitle">分队完成后，可以在这里记录胜方；系统会同步更新本场 10 位选手的积分和战绩。</view>
   </view>
 
   <view class="section panel">
-    <view class="section-title">当前分队</view>
-    <view wx:if="{{!teams}}" class="subtitle">请先去“开C”页完成系统分队。</view>
-    <button wx:if="{{teams}}" class="primary-btn" bindtap="recordRadiantWin">录入天辉胜利</button>
+    <view class="section-title">本场结果</view>
+    <view wx:if="{{!teams}}" class="subtitle">还没有分队，先去“开 C”页面完成自动分队。</view>
+    <view wx:if="{{teams}}" class="result-actions">
+      <button class="primary-btn" bindtap="recordRadiantWin">记录天辉胜利</button>
+      <button class="danger-btn" bindtap="recordDireWin">记录夜魇胜利</button>
+    </view>
+  </view>
+
+  <view class="section panel">
+    <view class="section-title">比赛 ID 导入</view>
+    <view class="subtitle">输入 Dota2 比赛 ID，自动拉取双方、胜方，确认后入库并更新已匹配选手积分。</view>
+    <input class="input" type="number" value="{{importMatchId}}" bindinput="onImportMatchIdInput" placeholder="输入比赛 ID" />
+    <button class="primary-btn" bindtap="previewImportedMatch">拉取比赛</button>
+
+    <view wx:if="{{importPreview}}" class="import-preview">
+      <view class="section-title">
+        <text>胜方 {{importWinnerText}}</text>
+        <text class="badge">{{importMatchedText}}</text>
+      </view>
+
+      <view class="team-preview">
+        <view class="team-title">天辉 {{importPreview.radiantKills}} 杀</view>
+        <view wx:for="{{importPreview.radiant}}" wx:key="accountId" class="player-row">
+          <view class="player-main">
+            <view class="player-name">{{item.name}}</view>
+            <view class="player-meta">KDA {{item.kills}} / {{item.deaths}} / {{item.assists}}</view>
+          </view>
+          <text class="{{item.matchBadgeClass}}">{{item.matchBadgeText}}</text>
+        </view>
+      </view>
+
+      <view class="team-preview">
+        <view class="team-title">夜魇 {{importPreview.direKills}} 杀</view>
+        <view wx:for="{{importPreview.dire}}" wx:key="accountId" class="player-row">
+          <view class="player-main">
+            <view class="player-name">{{item.name}}</view>
+            <view class="player-meta">KDA {{item.kills}} / {{item.deaths}} / {{item.assists}}</view>
+          </view>
+          <text class="{{item.matchBadgeClass}}">{{item.matchBadgeText}}</text>
+        </view>
+      </view>
+
+      <button class="primary-btn" bindtap="confirmImportedMatch">确认导入并更新积分</button>
+    </view>
+  </view>
+
+  <view wx:if="{{teams}}" class="section panel">
+    <view class="section-title">赛后投票</view>
+    <view class="subtitle">每个微信用户每项保留一票，重新投票会覆盖旧选择。</view>
+
+    <view class="vote-block">
+      <view class="player-name">今日 MVP</view>
+      <view class="player-meta">当前：{{mvpText}}</view>
+      <picker mode="selector" range="{{voteOptionNames}}" value="{{mvpIndex}}" bindchange="onMvpChange">
+        <view class="vote-picker">{{voteOptionNames[mvpIndex] || '选择选手'}}</view>
+      </picker>
+      <button class="primary-btn" bindtap="voteMvp">投给 MVP</button>
+    </view>
+
+    <view class="vote-block">
+      <view class="player-name">今日大触</view>
+      <view class="player-meta">当前：{{touchText}}</view>
+      <picker mode="selector" range="{{voteOptionNames}}" value="{{touchIndex}}" bindchange="onTouchChange">
+        <view class="vote-picker">{{voteOptionNames[touchIndex] || '选择选手'}}</view>
+      </picker>
+      <button class="primary-btn" bindtap="voteTouch">投给大触</button>
+    </view>
   </view>
 
   <view class="section">
-    <view class="section-title">最近战绩</view>
-    <view wx:for="{{matches}}" wx:key="id" class="player-row panel">
-      <view>
+    <view class="section-title">历史战绩</view>
+    <view wx:if="{{!matches.length}}" class="empty-panel">暂无历史战绩。</view>
+    <view wx:for="{{matches}}" wx:key="id" class="match-card panel">
+      <view class="match-main">
         <view class="player-name">{{item.title}}</view>
         <view class="player-meta">胜方 {{item.winner}} / MVP {{item.mvp}}</view>
       </view>
-      <text class="badge">差 {{item.scoreGap}}</text>
+      <view class="match-actions">
+        <text class="badge">差 {{item.scoreGap}}</text>
+        <button class="danger-btn mini-btn" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="deleteMatch">删除</button>
+      </view>
     </view>
   </view>
 </view>

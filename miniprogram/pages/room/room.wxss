@@ -1,9 +1,0 @@
-.team-card {
-  margin-bottom: 22rpx;
-}
-
-.signup-panel .danger-btn,
-.signup-panel .primary-btn,
-.primary-btn {
-  margin-top: 16rpx;
-}

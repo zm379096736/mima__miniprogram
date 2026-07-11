@@ -7,19 +7,13 @@ function sumScore(players) {
 function positionCost(player, position) {
   const preferences = player.preferredPositions || [];
   const index = preferences.indexOf(position);
-  if (index === 0) {
-    return 0;
-  }
-  if (index > 0) {
-    return 2 + index;
-  }
+  if (index === 0) return 0;
+  if (index > 0) return 2 + index;
   return 12;
 }
 
 function permutations(items) {
-  if (items.length <= 1) {
-    return [items];
-  }
+  if (items.length <= 1) return [items];
   const result = [];
   items.forEach((item, index) => {
     const rest = items.slice(0, index).concat(items.slice(index + 1));
@@ -54,9 +48,27 @@ function combinations(items, size, start = 0, picked = [], output = []) {
   return output;
 }
 
+function getBalanceReadiness(signups) {
+  const count = Array.isArray(signups) ? signups.length : 0;
+  if (count === 10) {
+    return { canBalance: true, message: '' };
+  }
+  if (count < 10) {
+    return {
+      canBalance: false,
+      message: `还差 ${10 - count} 位选手才能自动分队`
+    };
+  }
+  return {
+    canBalance: false,
+    message: `当前已有 ${count} 位选手，请保留 10 位后再分队`
+  };
+}
+
 function buildBalancedTeams(signups) {
-  if (!Array.isArray(signups) || signups.length !== 10) {
-    throw new Error('自动分队需要正好 10 位选手');
+  const readiness = getBalanceReadiness(signups);
+  if (!readiness.canBalance) {
+    throw new Error(readiness.message);
   }
 
   let best = null;
@@ -77,12 +89,12 @@ function buildBalancedTeams(signups) {
         totalCost,
         scoreGap,
         radiant: {
-          name: '天辉',
+          name: '\u5929\u8f89',
           totalScore: radiantScore,
           players: radiant.players.sort((a, b) => a.assignedPosition - b.assignedPosition)
         },
         dire: {
-          name: '夜魇',
+          name: '\u591c\u9b47',
           totalScore: direScore,
           players: dire.players.sort((a, b) => a.assignedPosition - b.assignedPosition)
         }
@@ -114,9 +126,7 @@ function applyMatchResult(players, result) {
       next.mvp = Number(next.mvp || 0) + 1;
       next.score = Number(next.score || 0) + 2;
     }
-    if (lateIds.has(next.id)) {
-      next.score = Number(next.score || 0) - 1;
-    }
+    if (lateIds.has(next.id)) next.score = Number(next.score || 0) - 1;
     if (pigeonIds.has(next.id)) {
       next.pigeon = Number(next.pigeon || 0) + 1;
       next.score = Number(next.score || 0) - 3;
@@ -132,5 +142,6 @@ function applyMatchResult(players, result) {
 module.exports = {
   buildBalancedTeams,
   applyMatchResult,
+  getBalanceReadiness,
   sumScore
 };

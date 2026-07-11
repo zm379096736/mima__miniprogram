@@ -1,8 +1,9 @@
-﻿<view class="screen">
+<view class="screen">
   <view class="hero player-card">
-    <view class="eyebrow">MY MIMA CARD</view>
+    <image class="avatar-large" src="{{avatarSrc}}" mode="aspectFill"></image>
+    <view class="eyebrow">WECHAT PLAYER CARD</view>
     <view class="title">{{player.name}}</view>
-    <view class="subtitle">{{player.tier}} 选手 / 偏好 {{positionText}}</view>
+    <view class="subtitle">微信身份 / 偏好 {{positionText}}</view>
     <view class="card-score">{{player.score}}</view>
   </view>
 
@@ -12,22 +13,46 @@
       <view class="stat-label">积分</view>
     </view>
     <view class="stat">
+      <view class="stat-value">{{player.mvp}}</view>
+      <view class="stat-label">MVP</view>
+    </view>
+    <view class="stat">
+      <view class="stat-value">{{player.touch}}</view>
+      <view class="stat-label">大触</view>
+    </view>
+  </view>
+
+  <view class="section grid-3">
+    <view class="stat">
       <view class="stat-value">{{player.wins}}</view>
       <view class="stat-label">胜场</view>
     </view>
     <view class="stat">
-      <view class="stat-value">{{player.mvp}}</view>
-      <view class="stat-label">MVP</view>
+      <view class="stat-value">{{player.matches}}</view>
+      <view class="stat-label">场次</view>
+    </view>
+    <view class="stat">
+      <view class="stat-value">{{player.pigeon}}</view>
+      <view class="stat-label">鸽子</view>
     </view>
   </view>
 
   <view class="section panel">
-    <view class="section-title">我的资料</view>
-    <view class="form-label">自评积分</view>
+    <view class="section-title">编辑选手卡</view>
+
+    <view class="avatar-editor">
+      <image class="avatar-preview" src="{{avatarSrc}}" mode="aspectFill"></image>
+      <button class="ghost-btn avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">选择微信头像</button>
+    </view>
+
+    <view class="form-label">选手名</view>
+    <input class="input" value="{{form.name}}" bindinput="onNameInput" placeholder="例如 秘马一号" />
+
+    <view class="form-label">自评分数</view>
     <input class="input" type="number" value="{{form.score}}" bindinput="onScoreInput" placeholder="例如 85" />
 
-    <view class="form-label">Steam ID</view>
-    <input class="input" value="{{form.steamId}}" bindinput="onSteamInput" placeholder="选填，用于后续绑定战绩" />
+    <view class="form-label">Steam / Dota ID</view>
+    <input class="input" value="{{form.steamId}}" bindinput="onSteamInput" placeholder="可填多个，用逗号或空格分隔" />
 
     <view class="form-label">偏好位置</view>
     <checkbox-group bindchange="onPositionChange">
@@ -39,6 +64,6 @@
     </checkbox-group>
 
     <button class="primary-btn" bindtap="saveProfile">保存我的卡片</button>
-    <view class="subtitle">保存后，自动分队会立刻使用你的新积分和偏好位置。</view>
+    <view class="subtitle">保存后才能报名；头像可以使用默认头像，不强制选择。</view>
   </view>
 </view>

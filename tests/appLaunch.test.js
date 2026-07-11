@@ -1,4 +1,4 @@
-﻿const test = require('node:test');
+const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
@@ -14,6 +14,9 @@ test('app.js can load and seed storage without syntax errors', () => {
     },
     setStorageSync(key, value) {
       storage.set(key, value);
+    },
+    cloud: {
+      init() {}
     }
   };
 
@@ -28,8 +31,8 @@ test('app.js can load and seed storage without syntax errors', () => {
   require(appPath);
 
   assert.equal(launched, true);
-  assert.equal(storage.get('mima_players').length, 10);
-  assert.equal(storage.get('mima_room').signups.length, 9);
+  assert.equal(storage.get('mima_players').length, 0);
+  assert.equal(storage.get('mima_room').signups.length, 0);
 
   delete global.wx;
   delete global.App;

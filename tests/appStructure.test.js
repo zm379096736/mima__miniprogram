@@ -9,18 +9,16 @@ function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(projectRoot, relativePath), 'utf8'));
 }
 
-test('app.json uses root pages that WeChat DevTools can load directly', () => {
-  const appJson = readJson('app.json');
+test('project uses root app.json and root pages', () => {
+  const projectConfig = readJson('project.config.json');
+  assert.ok(projectConfig.miniprogramRoot === undefined || projectConfig.miniprogramRoot === './');
 
+  const appJson = readJson('app.json');
   assert.ok(appJson.pages.length > 0);
   appJson.pages.forEach((pagePath) => {
     assert.match(pagePath, /^pages\//, `${pagePath} should live under root pages`);
     ['js', 'json', 'wxml', 'wxss'].forEach((extension) => {
-      assert.equal(
-        fs.existsSync(path.join(projectRoot, `${pagePath}.${extension}`)),
-        true,
-        `${pagePath}.${extension} should exist`
-      );
+      assert.equal(fs.existsSync(path.join(projectRoot, `${pagePath}.${extension}`)), true, `${pagePath}.${extension} should exist`);
     });
   });
 
@@ -33,10 +31,7 @@ test('app.json uses root pages that WeChat DevTools can load directly', () => {
 
 test('all page json files are valid json', () => {
   const appJson = readJson('app.json');
-
   appJson.pages.forEach((pagePath) => {
-    assert.doesNotThrow(() => {
-      readJson(`${pagePath}.json`);
-    }, `${pagePath}.json should parse`);
+    assert.doesNotThrow(() => readJson(`${pagePath}.json`), `${pagePath}.json should parse`);
   });
 });

@@ -43,3 +43,17 @@
   color: #8d98a8;
   font-size: 22rpx;
 }
+
+.avatar-mid {
+  width: 78rpx;
+  height: 78rpx;
+  border: 2rpx solid rgba(241, 196, 15, 0.45);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  margin-right: 16rpx;
+}
+
+.card-name-block {
+  flex: 1;
+  min-width: 0;
+}

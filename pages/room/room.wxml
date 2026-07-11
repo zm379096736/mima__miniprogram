@@ -1,16 +1,38 @@
-﻿<view class="screen">
+<view class="screen">
   <view class="hero">
     <view class="eyebrow">AUTO BALANCE</view>
     <view class="title">今日秘马开 C</view>
     <view class="subtitle">先报名，再按选手积分和偏好位置自动分队。每队都会有 1、2、3、4、5 号位。</view>
   </view>
 
+  <view class="section panel">
+    <view class="section-title">
+      <text>开 C 时间</text>
+      <text class="badge">{{startTime}}</text>
+    </view>
+    <picker mode="time" value="{{startTime}}" bindchange="onStartTimeChange">
+      <view class="time-picker">
+        <text>选择今晚开 C 时间</text>
+        <text>{{startTime}}</text>
+      </view>
+    </picker>
+  </view>
+
+  <view wx:if="{{isAdmin}}" class="section panel admin-panel">
+    <view class="section-title">
+      <text>管理员</text>
+      <text class="badge red">ADMIN</text>
+    </view>
+    <view class="subtitle">如果昨天报名没满，今天可以一键清空正式报名、候补名单和分队，重新开始新一轮报名。</view>
+    <button class="danger-btn" bindtap="resetSignups">清空报名并重开</button>
+  </view>
+
   <view class="section panel signup-panel">
     <view class="section-title">
       <text>我的报名</text>
-      <text class="badge {{signedUp ? 'blue' : ''}}">{{signupText}}</text>
+      <text class="{{signupBadgeClass}}">{{signupText}}</text>
     </view>
-    <view class="subtitle">当前以“我的”页选手卡片作为报名身份，后续接微信登录后会绑定到本人。</view>
+    <view class="subtitle">报名需要先在“我的”页创建选手卡；头像可以使用默认头像。正式位满 10 人后会自动进入候补。</view>
     <button wx:if="{{!signedUp}}" class="primary-btn" bindtap="joinTodayRoom">我要报名</button>
     <button wx:else class="danger-btn" bindtap="leaveTodayRoom">取消报名</button>
   </view>
@@ -18,20 +40,54 @@
   <view class="section panel">
     <view class="section-title">
       <text>报名池 {{signups.length}} / 10</text>
-      <text class="badge">分差 {{scoreGap}}</text>
+      <text class="badge">候补 {{waitlist.length}}</text>
     </view>
     <button class="primary-btn" bindtap="autoBalance">系统自动分队</button>
+    <view wx:if="{{!canBalance}}" class="subtitle">{{balanceTip}}</view>
   </view>
 
   <view class="section">
     <view class="section-title">报名选手</view>
+    <view wx:if="{{!signups.length}}" class="empty-panel">暂无正式报名选手。</view>
     <view wx:for="{{signups}}" wx:key="id" class="player-row panel">
-      <view>
+      <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
+      <view class="player-main">
         <view class="player-name">{{item.name}}</view>
-        <view class="player-meta">偏好 {{item.positionText}} / {{item.tier}}</view>
+        <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}} / 鸽子 {{item.pigeon}}</view>
       </view>
-      <text class="badge">{{item.score}}</text>
+      <text class="badge blue">正式</text>
     </view>
+  </view>
+
+  <view wx:if="{{waitlist.length}}" class="section">
+    <view class="section-title">候补名单</view>
+    <view wx:for="{{waitlist}}" wx:key="id" class="player-row panel">
+      <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
+      <view class="player-main">
+        <view class="player-name">{{index + 1}}. {{item.name}}</view>
+        <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}} / 鸽子 {{item.pigeon}}</view>
+      </view>
+      <text class="badge">候补</text>
+    </view>
+  </view>
+
+  <view wx:if="{{pigeonCandidates.length}}" class="section panel">
+    <view class="section-title">
+      <text>鸽子统计</text>
+      <text class="badge">{{selectedPigeonIds.length}} 人</text>
+    </view>
+    <view class="subtitle">勾选今天鸽了的选手，确认后对应选手卡的鸽子次数会 +1。</view>
+    <checkbox-group bindchange="onPigeonChange">
+      <label wx:for="{{pigeonCandidates}}" wx:key="id" class="check-row">
+        <checkbox value="{{item.id}}" checked="{{item.checked}}" />
+        <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
+        <view class="player-main">
+          <view class="player-name">{{item.name}}</view>
+          <view class="player-meta">当前鸽子 {{item.pigeon}} 次</view>
+        </view>
+      </label>
+    </checkbox-group>
+    <button class="danger-btn" bindtap="markPigeons">记录鸽子 +1</button>
   </view>
 
   <view wx:if="{{teams}}" class="section">
@@ -41,9 +97,10 @@
         <text>{{teams.radiant.totalScore}} 分</text>
       </view>
       <view wx:for="{{teams.radiant.players}}" wx:key="id" class="player-row">
-        <view>
+        <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
+        <view class="player-main">
           <view class="player-name">{{item.name}}</view>
-          <view class="player-meta">{{item.tier}} / 偏好 {{item.positionText}}</view>
+          <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}}</view>
         </view>
         <text class="badge blue">{{item.assignedPosition}}号位</text>
       </view>
@@ -55,9 +112,10 @@
         <text>{{teams.dire.totalScore}} 分</text>
       </view>
       <view wx:for="{{teams.dire.players}}" wx:key="id" class="player-row">
-        <view>
+        <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
+        <view class="player-main">
           <view class="player-name">{{item.name}}</view>
-          <view class="player-meta">{{item.tier}} / 偏好 {{item.positionText}}</view>
+          <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}}</view>
         </view>
         <text class="badge red">{{item.assignedPosition}}号位</text>
       </view>

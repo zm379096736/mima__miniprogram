@@ -1,7 +1,7 @@
-﻿const { getPlayers, savePlayers } = require('../../utils/storage');
-const { updatePlayerProfile, positionText } = require('../../utils/playerProfile');
+const { getBootstrap, saveCurrentProfile, uploadAvatarWithSrc } = require('../../utils/cloudStore');
+const { positionText } = require('../../utils/playerProfile');
 
-const CURRENT_PLAYER_ID = 'p1';
+const DEFAULT_AVATAR = '/images/tab.png';
 
 function buildPositionOptions(selected) {
   return [1, 2, 3, 4, 5].map((value) => {
@@ -18,33 +18,68 @@ function buildPositionOptions(selected) {
 Page({
   data: {
     player: {},
+    avatarSrc: DEFAULT_AVATAR,
     positionText: '',
     form: {
+      name: '',
       score: '',
       steamId: '',
+      avatarUrl: '',
       preferredPositions: []
     },
     positions: []
   },
 
-  onShow() {
-    this.loadPlayer();
+  async onShow() {
+    await this.loadPlayer();
   },
 
-  loadPlayer() {
-    const players = getPlayers();
-    const player = players.find((item) => item.id === CURRENT_PLAYER_ID) || players[0];
-    const selected = player.preferredPositions || [];
-    this.setData({
-      player,
-      positionText: positionText(selected),
-      form: {
-        score: String(player.score || 0),
-        steamId: player.steamId || '',
-        preferredPositions: selected.map(String)
-      },
-      positions: buildPositionOptions(selected)
-    });
+  async loadPlayer() {
+    try {
+      const data = await getBootstrap(true);
+      const player = data.currentPlayer;
+      const selected = player.preferredPositions || [];
+      this.setData({
+        player: {
+          ...player,
+          mvp: Number(player.mvp || 0),
+          touch: Number(player.touch || 0),
+          pigeon: Number(player.pigeon || 0)
+        },
+        avatarSrc: player.avatarSrc || DEFAULT_AVATAR,
+        positionText: positionText(selected),
+        form: {
+          name: player.name || '',
+          score: String(player.score || 0),
+          steamId: (player.steamIds && player.steamIds.length ? player.steamIds.join(', ') : player.steamId) || '',
+          avatarUrl: player.avatarUrl || '',
+          preferredPositions: selected.map(String)
+        },
+        positions: buildPositionOptions(selected)
+      });
+    } catch (error) {
+      wx.showToast({ title: error.message, icon: 'none' });
+    }
+  },
+
+  async onChooseAvatar(event) {
+    try {
+      wx.showLoading({ title: '头像上传中' });
+      const avatar = await uploadAvatarWithSrc(event.detail.avatarUrl);
+      this.setData({
+        avatarSrc: avatar.avatarSrc || DEFAULT_AVATAR,
+        'form.avatarUrl': avatar.avatarUrl
+      });
+      wx.hideLoading();
+      wx.showToast({ title: '头像已更新', icon: 'success' });
+    } catch (error) {
+      wx.hideLoading();
+      wx.showToast({ title: error.message, icon: 'none' });
+    }
+  },
+
+  onNameInput(event) {
+    this.setData({ 'form.name': event.detail.value });
   },
 
   onScoreInput(event) {
@@ -64,11 +99,10 @@ Page({
     });
   },
 
-  saveProfile() {
+  async saveProfile() {
     try {
-      const players = updatePlayerProfile(getPlayers(), this.data.player.id, this.data.form);
-      savePlayers(players);
-      this.loadPlayer();
+      await saveCurrentProfile(this.data.form);
+      await this.loadPlayer();
       wx.showToast({ title: '卡片已保存', icon: 'success' });
     } catch (error) {
       wx.showToast({ title: error.message, icon: 'none' });

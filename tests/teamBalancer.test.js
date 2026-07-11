@@ -1,7 +1,7 @@
-﻿const test = require('node:test');
+const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildBalancedTeams, applyMatchResult } = require('../utils/teamBalancer');
+const { buildBalancedTeams, applyMatchResult, getBalanceReadiness } = require('../utils/teamBalancer');
 
 const signups = [
   { id: 'p1', name: 'Carry A', score: 92, preferredPositions: [1, 2] },
@@ -27,7 +27,21 @@ test('buildBalancedTeams gives each team positions 1 through 5 and keeps score g
 });
 
 test('buildBalancedTeams rejects rooms without exactly ten players', () => {
-  assert.throws(() => buildBalancedTeams(signups.slice(0, 9)), /10 位选手/);
+  assert.throws(() => buildBalancedTeams(signups.slice(0, 9)), /还差 1 位选手/);
+});
+
+test('getBalanceReadiness explains why auto balance cannot start', () => {
+  assert.deepEqual(getBalanceReadiness(signups.slice(0, 9)), {
+    canBalance: false,
+    message: '还差 1 位选手才能自动分队'
+  });
+});
+
+test('getBalanceReadiness allows exactly ten players', () => {
+  assert.deepEqual(getBalanceReadiness(signups), {
+    canBalance: true,
+    message: ''
+  });
 });
 
 test('applyMatchResult updates winner points and penalties', () => {
@@ -57,3 +71,5 @@ test('applyMatchResult updates winner points and penalties', () => {
   assert.equal(updated.find((player) => player.id === 'p2').score, 87);
   assert.equal(updated.find((player) => player.id === 'p2').pressure, 1);
 });
+
+

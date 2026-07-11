@@ -2,6 +2,76 @@
   margin-top: 16rpx;
 }
 
+.result-actions {
+  display: grid;
+  gap: 16rpx;
+}
+
+.result-actions .danger-btn,
+.result-actions .primary-btn {
+  margin-top: 0;
+}
+
 .player-row.panel {
   margin-bottom: 14rpx;
+}
+
+.match-card {
+  align-items: center;
+  display: flex;
+  gap: 18rpx;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+}
+
+.match-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 12rpx;
+}
+
+.mini-btn {
+  height: 52rpx;
+  min-width: 96rpx;
+  padding: 0 18rpx;
+  font-size: 22rpx;
+  line-height: 52rpx;
+}
+
+.vote-block {
+  margin-top: 22rpx;
+}
+
+.vote-picker {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 8rpx;
+  color: #f7efe0;
+  margin-top: 14rpx;
+  padding: 20rpx 22rpx;
+}
+
+.input {
+  margin-top: 16rpx;
+}
+
+.import-preview {
+  margin-top: 24rpx;
+}
+
+.team-preview {
+  margin-top: 20rpx;
+}
+
+.team-title {
+  color: #f7efe0;
+  font-size: 28rpx;
+  font-weight: 700;
+  margin-bottom: 12rpx;
 }
