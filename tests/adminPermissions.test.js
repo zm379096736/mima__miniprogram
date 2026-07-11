@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 
 const clientConfig = require('../utils/config');
 const { ADMIN_OPENIDS, isAdminOpenid, assertAdmin } = require('../cloudfunctions/api/adminAuth');
-const CURRENT_ADMIN_OPENID = 'oL2oSxIzP83-8EHIoxZiH2nfmQno';
+const CURRENT_ADMIN_OPENID = 'oL2oSxlzP83-8EHloxZiH2nfmQno';
 
 test('cloud and client use the same administrator openids', () => {
   assert.deepEqual(ADMIN_OPENIDS, clientConfig.adminOpenids);
