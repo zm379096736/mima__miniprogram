@@ -28,6 +28,7 @@ function rollbackMatchStats(players, match) {
   const rollback = deriveRollbackIds(match);
   const participantIds = toSet(rollback.participantIds);
   const winnerIds = toSet(rollback.winnerIds);
+  const usesWinLossScoring = Number((match && match.scoringVersion) || 0) >= 2;
 
   return (players || []).map((player) => {
     if (!participantIds.has(player.id)) {
@@ -41,14 +42,16 @@ function rollbackMatchStats(players, match) {
     if (winnerIds.has(next.id)) {
       next.wins = Math.max(0, Number(next.wins || 0) - 1);
       score -= 2;
+    } else if (usesWinLossScoring) {
+      score += 1;
     }
     if (rollback.mvpId && next.id === rollback.mvpId) {
       next.mvp = Math.max(0, Number(next.mvp || 0) - 1);
-      score -= 2;
+      if (!usesWinLossScoring) score -= 2;
     }
     if (rollback.pressureId && next.id === rollback.pressureId) {
       next.pressure = Math.max(0, Number(next.pressure || 0) - 1);
-      score += 2;
+      if (!usesWinLossScoring) score += 2;
     }
 
     next.score = score;

@@ -48,7 +48,8 @@ function buildManualMatchRecord(room, winnerSide, timestamp) {
     winnerIds: update.winnerIds,
     mvpId: update.mvpId,
     pressureId: update.pressureId,
-    scoreGap: room.teams.scoreGap || 0
+    scoreGap: room.teams.scoreGap || 0,
+    scoringVersion: 2
   };
 }
 

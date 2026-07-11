@@ -63,7 +63,7 @@ test('buildMatchPreview maps OpenDota players to local player cards', () => {
   assert.equal(preview.dire[0].name, 'Enemy Carry');
 });
 
-test('applyImportedMatchResult increments matched winners only', () => {
+test('applyImportedMatchResult gives winners two points and losers minus one', () => {
   const preview = {
     matchId: '7001',
     radiantWin: true,
@@ -79,7 +79,8 @@ test('applyImportedMatchResult increments matched winners only', () => {
   ], preview);
 
   assert.deepEqual(updated[0], { id: 'p1', matches: 1, wins: 1, score: 82 });
-  assert.deepEqual(updated[1], { id: 'p2', matches: 1, wins: 0, score: 80 });
+  assert.deepEqual(updated[1], { id: 'p2', matches: 1, wins: 0, score: 79 });
   assert.deepEqual(updated[2], { id: 'p3', matches: 0, wins: 0, score: 80 });
   assert.equal(importedMatchToRecord(preview).scoreGap, 7);
+  assert.equal(importedMatchToRecord(preview).scoringVersion, 2);
 });

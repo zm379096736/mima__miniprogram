@@ -12,6 +12,29 @@
     </view>
   </view>
 
+  <view class="section panel score-table">
+    <view class="section-title">
+      <text>积分表</text>
+      <text class="badge">胜 +2 · 负 -1</text>
+    </view>
+    <view class="score-table-row score-table-head">
+      <text class="score-rank">排名</text>
+      <text class="score-player">选手</text>
+      <text class="score-record">胜 / 负</text>
+      <text class="score-points">积分</text>
+    </view>
+    <view wx:if="{{!scoreRows.length}}" class="empty-table">暂无选手积分</view>
+    <view wx:for="{{scoreRows}}" wx:key="id" class="score-table-row">
+      <text class="score-rank">#{{index + 1}}</text>
+      <view class="score-player score-player-main">
+        <image class="score-avatar" src="{{item.avatarSrc}}" mode="aspectFill"></image>
+        <text class="score-player-name">{{item.name}}</text>
+      </view>
+      <text class="score-record">{{item.wins}} / {{item.losses}}</text>
+      <text class="score-points">{{item.score}}</text>
+    </view>
+  </view>
+
   <view wx:if="{{pigeonBoard.length}}" class="section panel">
     <view class="section-title">鸽子榜</view>
     <view wx:for="{{pigeonBoard}}" wx:key="id" class="player-row">

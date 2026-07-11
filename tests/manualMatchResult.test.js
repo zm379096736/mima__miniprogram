@@ -53,4 +53,5 @@ test('buildManualMatchRecord stores rollback fields for selected winner side', (
   assert.deepEqual(record.winnerIds, ['d1', 'd2']);
   assert.equal(record.mvpId, 'd1');
   assert.equal(record.pressureId, 'r1');
+  assert.equal(record.scoringVersion, 2);
 });

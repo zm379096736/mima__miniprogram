@@ -111,29 +111,24 @@ function buildBalancedTeams(signups) {
 
 function applyMatchResult(players, result) {
   const winnerIds = new Set(result.winnerIds || []);
-  const lateIds = new Set(result.lateIds || []);
   const pigeonIds = new Set(result.pigeonIds || []);
   const pressureIds = new Set(result.pressureIds || []);
 
   return players.map((player) => {
     const next = { ...player };
     next.matches = Number(next.matches || 0) + 1;
+    next.score = Number(next.score || 0) + (winnerIds.has(next.id) ? 2 : -1);
     if (winnerIds.has(next.id)) {
       next.wins = Number(next.wins || 0) + 1;
-      next.score = Number(next.score || 0) + 2;
     }
     if (result.mvpId === next.id) {
       next.mvp = Number(next.mvp || 0) + 1;
-      next.score = Number(next.score || 0) + 2;
     }
-    if (lateIds.has(next.id)) next.score = Number(next.score || 0) - 1;
     if (pigeonIds.has(next.id)) {
       next.pigeon = Number(next.pigeon || 0) + 1;
-      next.score = Number(next.score || 0) - 3;
     }
     if (pressureIds.has(next.id)) {
       next.pressure = Number(next.pressure || 0) + 1;
-      next.score = Number(next.score || 0) - 2;
     }
     return next;
   });

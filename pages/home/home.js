@@ -1,6 +1,7 @@
 const { getBootstrap } = require('../../utils/cloudStore');
 const { positionText } = require('../../utils/playerProfile');
 const { normalizeHonors } = require('../../utils/honorVote');
+const { sortPlayersByScore } = require('../../utils/playerRanking');
 
 Page({
   data: {
@@ -21,15 +22,14 @@ Page({
   async loadHome() {
     try {
       const data = await getBootstrap(true);
-      const players = data.players
+      const players = sortPlayersByScore(data.players
         .filter((player) => player.profileCompleted)
         .map((player) => ({
           ...player,
           positionText: positionText(player.preferredPositions || [1]),
           avatarSrc: player.avatarSrc || '/images/tab.png',
           winRate: player.matches ? Math.round((player.wins / player.matches) * 100) : 0
-        }))
-        .sort((a, b) => b.score - a.score);
+        })));
       const honors = normalizeHonors(data.room.honors);
 
       this.setData({

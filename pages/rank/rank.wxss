@@ -57,3 +57,70 @@
   flex: 1;
   min-width: 0;
 }
+
+.score-table {
+  padding-bottom: 12rpx;
+}
+
+.score-table-row {
+  display: grid;
+  grid-template-columns: 72rpx minmax(0, 1fr) 112rpx 86rpx;
+  align-items: center;
+  min-height: 76rpx;
+  border-top: 2rpx solid rgba(255, 255, 255, 0.06);
+  color: #fffaf0;
+  font-size: 24rpx;
+}
+
+.score-table-head {
+  min-height: 54rpx;
+  border-top: 0;
+  color: #9f9483;
+  font-size: 21rpx;
+}
+
+.score-rank {
+  color: #f4c430;
+  font-weight: 900;
+}
+
+.score-player {
+  min-width: 0;
+}
+
+.score-player-main {
+  display: flex;
+  align-items: center;
+}
+
+.score-avatar {
+  flex-shrink: 0;
+  width: 50rpx;
+  height: 50rpx;
+  margin-right: 12rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.score-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-record,
+.score-points {
+  text-align: right;
+}
+
+.score-points {
+  color: #f4c430;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.empty-table {
+  padding: 24rpx 0;
+  color: #9f9483;
+  text-align: center;
+}

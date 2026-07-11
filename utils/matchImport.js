@@ -105,6 +105,7 @@ function importedMatchToRecord(preview) {
     winner: preview.winner,
     mvp: '\u5f85\u6295\u7968',
     scoreGap: Math.abs(Number(preview.radiantKills || 0) - Number(preview.direKills || 0)),
+    scoringVersion: 2,
     imported: true,
     radiantWin: Boolean(preview.radiantWin),
     radiant: preview.radiant,
@@ -121,9 +122,9 @@ function applyImportedMatchResult(players, preview) {
     }
     const next = { ...player };
     next.matches = Number(next.matches || 0) + 1;
+    next.score = Number(next.score || 0) + (winnerIds.has(player.id) ? 2 : -1);
     if (winnerIds.has(player.id)) {
       next.wins = Number(next.wins || 0) + 1;
-      next.score = Number(next.score || 0) + 2;
     }
     return next;
   });
