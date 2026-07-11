@@ -70,6 +70,9 @@ async function withAvatarSrc(player) {
   if (!player) {
     return player;
   }
+  if (player.avatarSrc) {
+    return player;
+  }
   return {
     ...player,
     avatarSrc: await getAvatarSrc(player.avatarUrl)
@@ -348,6 +351,7 @@ module.exports = {
   uploadAvatar,
   uploadAvatarWithSrc,
   getAvatarSrc,
+  withAvatarSrc,
   cleanCloudErrorMessage,
   clearCache,
   canUseCloud

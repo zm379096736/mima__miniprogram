@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk');
 const https = require('https');
 const { isAdminOpenid, assertAdmin } = require('./adminAuth');
 const { needsPigeonReset } = require('./pigeonReset');
+const { uniqueAvatarFileIds, applyAvatarTempUrls } = require('./avatarUrls');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -470,17 +471,64 @@ async function resetHistoryAndHonorsOnce(room) {
   });
 }
 
+async function withPlayerAvatarSrc(players) {
+  const fileIds = uniqueAvatarFileIds(players);
+  if (!fileIds.length) {
+    return applyAvatarTempUrls(players, []);
+  }
+
+  const fileList = [];
+  for (let index = 0; index < fileIds.length; index += 50) {
+    try {
+      const result = await cloud.getTempFileURL({
+        fileList: fileIds.slice(index, index + 50)
+      });
+      fileList.push(...(result.fileList || []));
+    } catch (error) {
+      // A missing legacy file should not block the rest of bootstrap.
+    }
+  }
+  return applyAvatarTempUrls(players, fileList);
+}
+
+function withTeamAvatarSrc(room, players) {
+  if (!room.teams) {
+    return room;
+  }
+  const avatarByPlayerId = {};
+  players.forEach((player) => {
+    avatarByPlayerId[player.id] = player.avatarSrc || '';
+  });
+  const decorateTeam = (team) => ({
+    ...team,
+    players: (team.players || []).map((player) => ({
+      ...player,
+      avatarSrc: avatarByPlayerId[player.id] || ''
+    }))
+  });
+  return {
+    ...room,
+    teams: {
+      ...room.teams,
+      radiant: decorateTeam(room.teams.radiant),
+      dire: decorateTeam(room.teams.dire)
+    }
+  };
+}
+
 async function bootstrap(openid) {
   await cleanupLegacySeedData();
   const currentPlayer = await ensureCurrentPlayer(openid);
   let room = await resetHistoryAndHonorsOnce(await ensureRoom());
   room = await resetPigeonStatsOnce(openid, room);
   await ensureMatches();
-  const players = (await db.collection('players').limit(100).get()).data;
+  const players = await withPlayerAvatarSrc((await db.collection('players').limit(100).get()).data);
+  const playerWithAvatar = players.find((player) => player.id === openid) || currentPlayer;
+  room = withTeamAvatarSrc(room, players);
   const matches = (await db.collection('matches').orderBy('createdAt', 'desc').limit(50).get()).data;
   return {
     openid,
-    currentPlayer: { ...currentPlayer, isAdmin: isAdminOpenid(openid) },
+    currentPlayer: { ...playerWithAvatar, isAdmin: isAdminOpenid(openid) },
     players,
     room,
     matches,
