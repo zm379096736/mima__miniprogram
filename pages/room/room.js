@@ -3,6 +3,7 @@ const {
   joinTodayRoom,
   leaveTodayRoom,
   resetTodayRoomSignups,
+  adminRemoveTodaySignup,
   saveTodayRoom,
   markTodayPigeons
 } = require('../../utils/cloudStore');
@@ -178,6 +179,33 @@ Page({
           await resetTodayRoomSignups();
           await this.loadRoom();
           wx.showToast({ title: '已重开报名', icon: 'success' });
+        } catch (error) {
+          wx.showToast({ title: error.message, icon: 'none' });
+        }
+      }
+    });
+  },
+
+  adminRemoveSignup(event) {
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '只有管理员可以操作', icon: 'none' });
+      return;
+    }
+    const playerId = event.currentTarget.dataset.playerId;
+    const playerName = event.currentTarget.dataset.playerName || '这位选手';
+    wx.showModal({
+      title: '取消选手报名',
+      content: `确定移除“${playerName}”吗？如果移除正式选手，候补第 1 位会自动递补。`,
+      confirmText: '移除',
+      confirmColor: '#e63946',
+      success: async (result) => {
+        if (!result.confirm) {
+          return;
+        }
+        try {
+          await adminRemoveTodaySignup(playerId);
+          await this.loadRoom();
+          wx.showToast({ title: '已取消报名', icon: 'success' });
         } catch (error) {
           wx.showToast({ title: error.message, icon: 'none' });
         }

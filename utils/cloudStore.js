@@ -186,6 +186,12 @@ async function resetTodayRoomSignups() {
   return room;
 }
 
+async function adminRemoveTodaySignup(playerId) {
+  const room = await callApi('adminRemoveSignup', { playerId });
+  clearCache();
+  return room;
+}
+
 async function saveTodayRoom(room) {
   const saved = await callApi('saveRoom', { room });
   clearCache();
@@ -297,6 +303,10 @@ function callLocal(action, payload) {
     };
     return clone(localRoom);
   }
+  if (action === 'adminRemoveSignup') {
+    localRoom = leaveRoom(localRoom, payload.playerId);
+    return clone(localRoom);
+  }
   if (action === 'saveRoom') {
     localRoom = clone(payload.room);
     return clone(localRoom);
@@ -341,6 +351,7 @@ module.exports = {
   joinTodayRoom,
   leaveTodayRoom,
   resetTodayRoomSignups,
+  adminRemoveTodaySignup,
   saveTodayRoom,
   recordMatchResult,
   recordRadiantWin,

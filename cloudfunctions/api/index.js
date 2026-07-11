@@ -4,6 +4,7 @@ const { isAdminOpenid, assertAdmin } = require('./adminAuth');
 const { needsPigeonReset } = require('./pigeonReset');
 const { uniqueAvatarFileIds, applyAvatarTempUrls } = require('./avatarUrls');
 const { scoreAfterMatch, scoreAfterRollback } = require('./matchScoring');
+const { removeSignupFromRoom } = require('./adminSignup');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -685,6 +686,16 @@ async function resetRoomSignups(openid) {
   });
 }
 
+async function adminRemoveSignup(openid, playerId) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u79fb\u9664\u62a5\u540d');
+  const room = await getRoomDoc();
+  const targetId = String(playerId || '').trim();
+  if (!(room.signups || []).includes(targetId) && !(room.waitlist || []).includes(targetId)) {
+    throw new Error('\u8fd9\u4f4d\u9009\u624b\u5df2\u4e0d\u5728\u62a5\u540d\u540d\u5355\u4e2d');
+  }
+  return updateRoom(removeSignupFromRoom(room, targetId));
+}
+
 async function markPigeons(openid, pigeonIds) {
   assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u8bb0\u5f55\u9e3d\u5b50');
   const selected = new Set(uniqueIds(pigeonIds));
@@ -912,6 +923,9 @@ exports.main = async (event) => {
   }
   if (action === 'resetRoomSignups') {
     return resetRoomSignups(openid);
+  }
+  if (action === 'adminRemoveSignup') {
+    return adminRemoveSignup(openid, event.playerId);
   }
   if (action === 'saveRoom') {
     return updateRoom(event.room || {});

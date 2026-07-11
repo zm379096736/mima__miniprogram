@@ -30,3 +30,21 @@
   gap: 16rpx;
   padding: 18rpx 0;
 }
+
+.remove-player-btn {
+  flex-shrink: 0;
+  min-width: 82rpx;
+  height: 48rpx;
+  margin-left: 12rpx;
+  padding: 0 14rpx;
+  border: 2rpx solid rgba(230, 57, 70, 0.5);
+  border-radius: 8rpx;
+  color: #fffaf0;
+  background: rgba(230, 57, 70, 0.16);
+  font-size: 22rpx;
+  line-height: 44rpx;
+}
+
+.remove-player-btn::after {
+  border: 0;
+}

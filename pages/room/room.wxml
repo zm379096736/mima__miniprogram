@@ -64,6 +64,7 @@
         <view class="player-meta">自评分 {{item.score}} / 偏好 {{item.positionText}} / 鸽子 {{item.pigeon}}</view>
       </view>
       <text class="badge blue">正式</text>
+      <button wx:if="{{isAdmin}}" class="remove-player-btn" data-player-id="{{item.id}}" data-player-name="{{item.name}}" bindtap="adminRemoveSignup">移除</button>
     </view>
   </view>
 
@@ -76,6 +77,7 @@
         <view class="player-meta">自评分 {{item.score}} / 偏好 {{item.positionText}} / 鸽子 {{item.pigeon}}</view>
       </view>
       <text class="badge">候补</text>
+      <button wx:if="{{isAdmin}}" class="remove-player-btn" data-player-id="{{item.id}}" data-player-name="{{item.name}}" bindtap="adminRemoveSignup">移除</button>
     </view>
   </view>
 
