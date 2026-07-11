@@ -1,12 +1,14 @@
 const cloud = require('wx-server-sdk');
 const https = require('https');
 const { isAdminOpenid, assertAdmin } = require('./adminAuth');
+const { needsPigeonReset } = require('./pigeonReset');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 const _ = db.command;
 const HISTORY_RESET_VERSION = 3;
+const PIGEON_RESET_VERSION = 1;
 const LEGACY_SEED_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'];
 
 function emptyVotes() {
@@ -432,6 +434,7 @@ async function ensureRoom() {
     votes: emptyVotes(),
     honors: emptyHonors(),
     cleanupVersion: HISTORY_RESET_VERSION,
+    pigeonResetVersion: 0,
     updatedAt: db.serverDate()
   };
   const result = await db.collection('rooms').add({ data: room });
@@ -470,7 +473,8 @@ async function resetHistoryAndHonorsOnce(room) {
 async function bootstrap(openid) {
   await cleanupLegacySeedData();
   const currentPlayer = await ensureCurrentPlayer(openid);
-  const room = await resetHistoryAndHonorsOnce(await ensureRoom());
+  let room = await resetHistoryAndHonorsOnce(await ensureRoom());
+  room = await resetPigeonStatsOnce(openid, room);
   await ensureMatches();
   const players = (await db.collection('players').limit(100).get()).data;
   const matches = (await db.collection('matches').orderBy('createdAt', 'desc').limit(50).get()).data;
@@ -505,6 +509,7 @@ async function updateRoom(room) {
     votes: room.votes || existed.votes || emptyVotes(),
     honors: room.honors || existed.honors || emptyHonors(),
     cleanupVersion: room.cleanupVersion || existed.cleanupVersion || 0,
+    pigeonResetVersion: room.pigeonResetVersion || existed.pigeonResetVersion || 0,
     updatedAt: db.serverDate()
   };
   await db.collection('rooms').doc(existed._id).update({
@@ -516,6 +521,30 @@ async function updateRoom(room) {
     }
   });
   return { ...existed, ...cleanRoom };
+}
+
+async function resetPigeonStatsOnce(openid, room) {
+  if (!isAdminOpenid(openid) || !needsPigeonReset(room, PIGEON_RESET_VERSION)) {
+    return room;
+  }
+
+  const players = (await db.collection('players').limit(100).get()).data;
+  for (const player of players) {
+    if (!Number(player.pigeon || 0)) {
+      continue;
+    }
+    await db.collection('players').doc(player._id).update({
+      data: {
+        pigeon: 0,
+        updatedAt: db.serverDate()
+      }
+    });
+  }
+
+  return updateRoom({
+    ...room,
+    pigeonResetVersion: PIGEON_RESET_VERSION
+  });
 }
 
 async function voteHonor(openid, honorType, playerId) {
