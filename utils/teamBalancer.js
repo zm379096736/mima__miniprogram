@@ -117,7 +117,7 @@ function applyMatchResult(players, result) {
   return players.map((player) => {
     const next = { ...player };
     next.matches = Number(next.matches || 0) + 1;
-    next.score = Number(next.score || 0) + (winnerIds.has(next.id) ? 2 : -1);
+    next.points = Number(next.points || 0) + (winnerIds.has(next.id) ? 2 : -1);
     if (winnerIds.has(next.id)) {
       next.wins = Number(next.wins || 0) + 1;
     }

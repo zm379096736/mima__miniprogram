@@ -28,7 +28,9 @@ function rollbackMatchStats(players, match) {
   const rollback = deriveRollbackIds(match);
   const participantIds = toSet(rollback.participantIds);
   const winnerIds = toSet(rollback.winnerIds);
-  const usesWinLossScoring = Number((match && match.scoringVersion) || 0) >= 2;
+  const scoringVersion = Number((match && match.scoringVersion) || 0);
+  const usesWinLossScoring = scoringVersion >= 2;
+  const usesSeparatePoints = scoringVersion >= 3;
 
   return (players || []).map((player) => {
     if (!participantIds.has(player.id)) {
@@ -39,10 +41,14 @@ function rollbackMatchStats(players, match) {
     next.matches = Math.max(0, Number(next.matches || 0) - 1);
     let score = Number(next.score || 0);
 
+    if (usesSeparatePoints) {
+      next.points = Number(next.points || 0) + (winnerIds.has(next.id) ? -2 : 1);
+    }
+
     if (winnerIds.has(next.id)) {
       next.wins = Math.max(0, Number(next.wins || 0) - 1);
-      score -= 2;
-    } else if (usesWinLossScoring) {
+      if (!usesSeparatePoints) score -= 2;
+    } else if (usesWinLossScoring && !usesSeparatePoints) {
       score += 1;
     }
     if (rollback.mvpId && next.id === rollback.mvpId) {
@@ -54,7 +60,7 @@ function rollbackMatchStats(players, match) {
       if (!usesWinLossScoring) score += 2;
     }
 
-    next.score = score;
+    if (!usesSeparatePoints) next.score = score;
     return next;
   });
 }

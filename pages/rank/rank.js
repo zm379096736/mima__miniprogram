@@ -1,6 +1,6 @@
 const { getBootstrap } = require('../../utils/cloudStore');
 const { positionText } = require('../../utils/playerProfile');
-const { sortPlayersByScore } = require('../../utils/playerRanking');
+const { sortPlayersByPoints } = require('../../utils/playerRanking');
 
 Page({
   data: {
@@ -13,10 +13,11 @@ Page({
   async onShow() {
     try {
       const data = await getBootstrap(true);
-      const players = sortPlayersByScore(data.players
+      const players = sortPlayersByPoints(data.players
         .filter((player) => player.profileCompleted)
         .map((player) => ({
           ...player,
+          points: Number(player.points || 0),
           mvp: Number(player.mvp || 0),
           touch: Number(player.touch || 0),
           pigeon: Number(player.pigeon || 0),

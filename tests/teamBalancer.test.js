@@ -46,8 +46,8 @@ test('getBalanceReadiness allows exactly ten players', () => {
 
 test('applyMatchResult scores wins and losses only', () => {
   const players = [
-    { id: 'p1', name: 'Carry A', matches: 3, wins: 1, score: 92, mvp: 0, pigeon: 0, pressure: 0 },
-    { id: 'p2', name: 'Mid A', matches: 3, wins: 2, score: 90, mvp: 0, pigeon: 0, pressure: 0 }
+    { id: 'p1', name: 'Carry A', matches: 3, wins: 1, score: 92, points: 0, mvp: 0, pigeon: 0, pressure: 0 },
+    { id: 'p2', name: 'Mid A', matches: 3, wins: 2, score: 90, points: 0, mvp: 0, pigeon: 0, pressure: 0 }
   ];
 
   const updated = applyMatchResult(players, {
@@ -63,12 +63,14 @@ test('applyMatchResult scores wins and losses only', () => {
     name: 'Carry A',
     matches: 4,
     wins: 2,
-    score: 94,
+    score: 92,
+    points: 2,
     mvp: 1,
     pigeon: 0,
     pressure: 0
   });
-  assert.equal(updated.find((player) => player.id === 'p2').score, 89);
+  assert.equal(updated.find((player) => player.id === 'p2').score, 90);
+  assert.equal(updated.find((player) => player.id === 'p2').points, -1);
   assert.equal(updated.find((player) => player.id === 'p2').pressure, 1);
 });
 

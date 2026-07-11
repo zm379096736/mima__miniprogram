@@ -73,14 +73,14 @@ test('applyImportedMatchResult gives winners two points and losers minus one', (
     dire: [{ playerId: 'p2' }]
   };
   const updated = applyImportedMatchResult([
-    { id: 'p1', matches: 0, wins: 0, score: 80 },
-    { id: 'p2', matches: 0, wins: 0, score: 80 },
-    { id: 'p3', matches: 0, wins: 0, score: 80 }
+    { id: 'p1', matches: 0, wins: 0, score: 80, points: 0 },
+    { id: 'p2', matches: 0, wins: 0, score: 80, points: 0 },
+    { id: 'p3', matches: 0, wins: 0, score: 80, points: 0 }
   ], preview);
 
-  assert.deepEqual(updated[0], { id: 'p1', matches: 1, wins: 1, score: 82 });
-  assert.deepEqual(updated[1], { id: 'p2', matches: 1, wins: 0, score: 79 });
-  assert.deepEqual(updated[2], { id: 'p3', matches: 0, wins: 0, score: 80 });
+  assert.deepEqual(updated[0], { id: 'p1', matches: 1, wins: 1, score: 80, points: 2 });
+  assert.deepEqual(updated[1], { id: 'p2', matches: 1, wins: 0, score: 80, points: -1 });
+  assert.deepEqual(updated[2], { id: 'p3', matches: 0, wins: 0, score: 80, points: 0 });
   assert.equal(importedMatchToRecord(preview).scoreGap, 7);
-  assert.equal(importedMatchToRecord(preview).scoringVersion, 2);
+  assert.equal(importedMatchToRecord(preview).scoringVersion, 3);
 });

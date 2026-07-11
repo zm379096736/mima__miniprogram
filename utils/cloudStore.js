@@ -114,6 +114,7 @@ function localBootstrap() {
       openid: 'local-openid',
       name: '\u79d8\u9a6c\u4e00\u53f7',
       score: 80,
+      points: 0,
       matches: 0,
       wins: 0,
       mvp: 0,

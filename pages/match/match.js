@@ -59,7 +59,7 @@ Page({
   async recordWinner(winnerSide, winnerName) {
     wx.showModal({
       title: '确认本场结果',
-      content: `确定记录 ${winnerName} 胜利吗？确认后会更新本场 10 位选手的积分和战绩。`,
+      content: `确定记录 ${winnerName} 胜利吗？确认后会更新本场 10 位选手的比赛积分和战绩。`,
       success: async (result) => {
         if (!result.confirm) {
           return;
@@ -139,7 +139,7 @@ Page({
     const title = event.currentTarget.dataset.title || '这条战绩';
     wx.showModal({
       title: '删除历史战绩',
-      content: `确定删除“${title}”吗？会同时回滚这场比赛加过的选手积分、场次和胜场。`,
+      content: `确定删除“${title}”吗？会同时回滚这场比赛的选手比赛积分、场次和胜场。`,
       confirmText: '删除',
       confirmColor: '#e63946',
       success: async (result) => {

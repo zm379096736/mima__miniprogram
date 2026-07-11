@@ -2,7 +2,7 @@
   <view class="hero">
     <view class="eyebrow">ADMIN SCORE</view>
     <view class="title">战绩录入</view>
-    <view class="subtitle">分队完成后，可以在这里记录胜方；系统会同步更新本场 10 位选手的积分和战绩。</view>
+    <view class="subtitle">分队完成后，可以在这里记录胜方；系统会同步更新本场 10 位选手的比赛积分和战绩。</view>
   </view>
 
   <view class="section panel">
@@ -16,7 +16,7 @@
 
   <view class="section panel">
     <view class="section-title">比赛 ID 导入</view>
-    <view class="subtitle">输入 Dota2 比赛 ID，自动拉取双方、胜方，确认后入库并更新已匹配选手积分。</view>
+    <view class="subtitle">输入 Dota2 比赛 ID，自动拉取双方、胜方，确认后入库并更新已匹配选手比赛积分。</view>
     <input class="input" type="number" value="{{importMatchId}}" bindinput="onImportMatchIdInput" placeholder="输入比赛 ID" />
     <button class="primary-btn" bindtap="previewImportedMatch">拉取比赛</button>
 
@@ -48,7 +48,7 @@
         </view>
       </view>
 
-      <button class="primary-btn" bindtap="confirmImportedMatch">确认导入并更新积分</button>
+      <button class="primary-btn" bindtap="confirmImportedMatch">确认导入并更新比赛积分</button>
     </view>
   </view>
 

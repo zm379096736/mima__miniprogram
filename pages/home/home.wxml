@@ -25,7 +25,7 @@
       <text>{{room.title}}</text>
       <text class="badge">{{room.status}}</text>
     </view>
-    <view class="subtitle">十人到齐后，在“开 C”页按积分和偏好位置自动分队；满员后会自动进入候补名单。</view>
+    <view class="subtitle">十人到齐后，在“开 C”页按自评分和偏好位置自动分队；满员后会自动进入候补名单。</view>
     <button class="primary-btn" bindtap="goRoom">进入开 C</button>
   </view>
 
@@ -54,9 +54,9 @@
       <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
       <view class="player-main">
         <view class="player-name">{{index + 1}}. {{item.name}}</view>
-        <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}} / 胜率 {{item.winRate}}%</view>
+        <view class="player-meta">积分 {{item.points}} / 自评分 {{item.score}} / 胜率 {{item.winRate}}%</view>
       </view>
-      <text class="badge">{{item.score}}</text>
+      <text class="badge">{{item.points}}</text>
     </view>
   </view>
 </view>

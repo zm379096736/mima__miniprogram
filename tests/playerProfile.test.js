@@ -5,7 +5,7 @@ const { updatePlayerProfile, positionText, normalizeSteamIds } = require('../uti
 
 test('updatePlayerProfile lets a player save score and preferred positions', () => {
   const players = [
-    { id: 'p1', name: 'Player One', score: 92, preferredPositions: [1, 2], steamId: '' },
+    { id: 'p1', name: 'Player One', score: 92, points: 6, preferredPositions: [1, 2], steamId: '' },
     { id: 'p2', name: 'Mid Player', score: 90, preferredPositions: [2], steamId: '' }
   ];
 
@@ -20,6 +20,7 @@ test('updatePlayerProfile lets a player save score and preferred positions', () 
     id: 'p1',
     name: 'Player One',
     score: 85,
+    points: 6,
     preferredPositions: [1, 3, 5],
     steamId: '76561198000000000, 12345',
     steamIds: ['76561198000000000', '12345'],

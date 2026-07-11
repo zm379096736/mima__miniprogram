@@ -4,13 +4,13 @@
     <view class="eyebrow">WECHAT PLAYER CARD</view>
     <view class="title">{{player.name}}</view>
     <view class="subtitle">微信身份 / 偏好 {{positionText}}</view>
-    <view class="card-score">{{player.score}}</view>
+    <view class="card-score">{{player.points}} 积分</view>
   </view>
 
   <view class="section grid-3">
     <view class="stat">
       <view class="stat-value">{{player.score}}</view>
-      <view class="stat-label">积分</view>
+      <view class="stat-label">自评分</view>
     </view>
     <view class="stat">
       <view class="stat-value">{{player.mvp}}</view>

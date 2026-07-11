@@ -131,7 +131,7 @@ Page({
       if (!this.data.currentPlayer.profileCompleted) {
         wx.showModal({
           title: '先创建选手卡',
-          content: '保存选手名、积分和偏好位置后才能报名。头像可以使用默认头像。',
+          content: '保存选手名、自评分和偏好位置后才能报名。头像可以使用默认头像。',
           confirmText: '去创建',
           success: (result) => {
             if (result.confirm) {

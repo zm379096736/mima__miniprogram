@@ -42,6 +42,7 @@ Page({
       this.setData({
         player: {
           ...player,
+          points: Number(player.points || 0),
           mvp: Number(player.mvp || 0),
           touch: Number(player.touch || 0),
           pigeon: Number(player.pigeon || 0)

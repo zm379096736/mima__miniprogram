@@ -24,7 +24,7 @@ function resetRoomHistoryState(room) {
 function resetPlayerStats(player) {
   return {
     ...(player || {}),
-    score: 80,
+    points: 0,
     matches: 0,
     wins: 0,
     mvp: 0,

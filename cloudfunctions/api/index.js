@@ -27,7 +27,7 @@ function needsHistoryReset(room) {
 
 function resetPlayerStatsData() {
   return {
-    score: 80,
+    points: 0,
     matches: 0,
     wins: 0,
     mvp: 0,
@@ -185,7 +185,7 @@ function importedMatchToRecord(preview) {
     winner: preview.winner,
     mvp: '\u5f85\u6295\u7968',
     scoreGap: Math.abs(Number(preview.radiantKills || 0) - Number(preview.direKills || 0)),
-    scoringVersion: 2,
+    scoringVersion: 3,
     imported: true,
     radiantWin: Boolean(preview.radiantWin),
     radiant: preview.radiant,
@@ -367,6 +367,7 @@ async function ensureCurrentPlayer(openid) {
     openid,
     name: '\u5fae\u4fe1\u9009\u624b',
     score: 80,
+    points: 0,
     matches: 0,
     wins: 0,
     mvp: 0,
@@ -524,7 +525,10 @@ async function bootstrap(openid) {
   let room = await resetHistoryAndHonorsOnce(await ensureRoom());
   room = await resetPigeonStatsOnce(openid, room);
   await ensureMatches();
-  const players = await withPlayerAvatarSrc((await db.collection('players').limit(100).get()).data);
+  const players = await withPlayerAvatarSrc((await db.collection('players').limit(100).get()).data.map((player) => ({
+    ...player,
+    points: Number(player.points || 0)
+  })));
   const playerWithAvatar = players.find((player) => player.id === openid) || currentPlayer;
   room = withTeamAvatarSrc(room, players);
   const matches = (await db.collection('matches').orderBy('createdAt', 'desc').limit(50).get()).data;
@@ -745,7 +749,7 @@ async function recordMatchResult(winnerSide) {
       continue;
     }
     const data = { matches: Number(player.matches || 0) + 1, updatedAt: db.serverDate() };
-    let score = scoreAfterMatch(player.score, winnerIds.has(player.id));
+    const points = scoreAfterMatch(player.points, winnerIds.has(player.id));
     if (winnerIds.has(player.id)) {
       data.wins = Number(player.wins || 0) + 1;
     }
@@ -755,7 +759,7 @@ async function recordMatchResult(winnerSide) {
     if (player.id === result.pressureId) {
       data.pressure = Number(player.pressure || 0) + 1;
     }
-    data.score = score;
+    data.points = points;
     await db.collection('players').doc(player._id).update({ data });
   }
 
@@ -770,7 +774,7 @@ async function recordMatchResult(winnerSide) {
     mvpId: result.mvpId,
     pressureId: result.pressureId,
     scoreGap: room.teams.scoreGap,
-    scoringVersion: 2,
+    scoringVersion: 3,
     createdAt: db.serverDate()
   };
   await db.collection('matches').add({ data: match });
@@ -821,7 +825,7 @@ async function confirmImportedMatch(matchId) {
     }
     const data = {
       matches: Number(player.matches || 0) + 1,
-      score: scoreAfterMatch(player.score, winnerIds.has(player.id)),
+      points: scoreAfterMatch(player.points, winnerIds.has(player.id)),
       updatedAt: db.serverDate()
     };
     if (winnerIds.has(player.id)) {
@@ -844,7 +848,9 @@ async function deleteMatchRecord(matchId) {
   const rollback = deriveRollbackIds(match);
   const participantIds = new Set(rollback.participantIds || []);
   const winnerIds = new Set(rollback.winnerIds || []);
-  const usesWinLossScoring = Number(match.scoringVersion || 0) >= 2;
+  const scoringVersion = Number(match.scoringVersion || 0);
+  const usesWinLossScoring = scoringVersion >= 2;
+  const usesSeparatePoints = scoringVersion >= 3;
   if (!participantIds.size) {
     throw new Error('\u8fd9\u6761\u65e7\u6218\u7ee9\u7f3a\u5c11\u53c2\u4e0e\u8005\u4fe1\u606f\uff0c\u65e0\u6cd5\u51c6\u786e\u56de\u6eda\u9009\u624b\u6570\u636e');
   }
@@ -859,11 +865,12 @@ async function deleteMatchRecord(matchId) {
       matches: Math.max(0, Number(player.matches || 0) - 1),
       updatedAt: db.serverDate()
     };
-    let score = scoreAfterRollback(
-      player.score,
-      winnerIds.has(player.id),
-      match.scoringVersion
-    );
+    let score = Number(player.score || 0);
+    if (usesSeparatePoints) {
+      data.points = scoreAfterRollback(player.points, winnerIds.has(player.id), scoringVersion);
+    } else {
+      score = scoreAfterRollback(player.score, winnerIds.has(player.id), scoringVersion);
+    }
 
     if (winnerIds.has(player.id)) {
       data.wins = Math.max(0, Number(player.wins || 0) - 1);
@@ -877,7 +884,7 @@ async function deleteMatchRecord(matchId) {
       if (!usesWinLossScoring) score += 2;
     }
 
-    data.score = score;
+    if (!usesSeparatePoints) data.score = score;
     await db.collection('players').doc(player._id).update({ data });
   }
 

@@ -2,7 +2,7 @@
   <view class="hero">
     <view class="eyebrow">AUTO BALANCE</view>
     <view class="title">今日秘马开 C</view>
-    <view class="subtitle">先报名，再按选手积分和偏好位置自动分队。每队都会有 1、2、3、4、5 号位。</view>
+    <view class="subtitle">先报名，再按选手自评分和偏好位置自动分队。每队都会有 1、2、3、4、5 号位。</view>
   </view>
 
   <view class="section panel">
@@ -61,7 +61,7 @@
       <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
       <view class="player-main">
         <view class="player-name">{{item.name}}</view>
-        <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}} / 鸽子 {{item.pigeon}}</view>
+        <view class="player-meta">自评分 {{item.score}} / 偏好 {{item.positionText}} / 鸽子 {{item.pigeon}}</view>
       </view>
       <text class="badge blue">正式</text>
     </view>
@@ -73,7 +73,7 @@
       <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
       <view class="player-main">
         <view class="player-name">{{index + 1}}. {{item.name}}</view>
-        <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}} / 鸽子 {{item.pigeon}}</view>
+        <view class="player-meta">自评分 {{item.score}} / 偏好 {{item.positionText}} / 鸽子 {{item.pigeon}}</view>
       </view>
       <text class="badge">候补</text>
     </view>
@@ -108,7 +108,7 @@
         <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
         <view class="player-main">
           <view class="player-name">{{item.name}}</view>
-          <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}}</view>
+          <view class="player-meta">自评分 {{item.score}} / 偏好 {{item.positionText}}</view>
         </view>
         <text class="badge blue">{{item.assignedPosition}}号位</text>
       </view>
@@ -123,7 +123,7 @@
         <image class="avatar-small" src="{{item.avatarSrc}}" mode="aspectFill"></image>
         <view class="player-main">
           <view class="player-name">{{item.name}}</view>
-          <view class="player-meta">积分 {{item.score}} / 偏好 {{item.positionText}}</view>
+          <view class="player-meta">自评分 {{item.score}} / 偏好 {{item.positionText}}</view>
         </view>
         <text class="badge red">{{item.assignedPosition}}号位</text>
       </view>
