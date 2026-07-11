@@ -528,18 +528,12 @@ async function resetPigeonStatsOnce(openid, room) {
     return room;
   }
 
-  const players = (await db.collection('players').limit(100).get()).data;
-  for (const player of players) {
-    if (!Number(player.pigeon || 0)) {
-      continue;
+  await db.collection('players').where({ pigeon: _.gt(0) }).update({
+    data: {
+      pigeon: 0,
+      updatedAt: db.serverDate()
     }
-    await db.collection('players').doc(player._id).update({
-      data: {
-        pigeon: 0,
-        updatedAt: db.serverDate()
-      }
-    });
-  }
+  });
 
   return updateRoom({
     ...room,
