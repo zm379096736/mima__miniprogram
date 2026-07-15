@@ -29,24 +29,6 @@
     <button class="primary-btn" bindtap="goRoom">进入开 C</button>
   </view>
 
-  <view class="section panel">
-    <view class="section-title">今日荣誉</view>
-    <view class="player-row">
-      <view class="player-main">
-        <view class="player-name">今日 MVP</view>
-        <view class="player-meta">{{mvpText}}</view>
-      </view>
-      <text class="badge">MVP</text>
-    </view>
-    <view class="player-row">
-      <view class="player-main">
-        <view class="player-name">今日大触</view>
-        <view class="player-meta">{{touchText}}</view>
-      </view>
-      <text class="badge blue">大触</text>
-    </view>
-  </view>
-
   <view class="section">
     <view class="section-title">秘马前三卡片</view>
     <view wx:if="{{!topPlayers.length}}" class="empty-panel">还没有完整选手卡，先去“我的”创建自己的选手卡。</view>

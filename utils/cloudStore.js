@@ -1,10 +1,11 @@
 const seed = require('./seed');
 const { joinRoom, leaveRoom } = require('./roomSignup');
 const { voteHonor } = require('./honorVote');
-const { normalizeSteamIds } = require('./playerProfile');
+const { normalizeSteamIds, normalizeScore } = require('./playerProfile');
+const { normalizeRoomStartTime } = require('./roomTime');
 const { applyPigeonMarks, uniqueIds } = require('./pigeonStats');
 const { normalizeMatchRecordId, removeMatchById } = require('./matchHistory');
-const { applyHonorStatVote } = require('./honorStats');
+const { applyFinalHonorAwards } = require('./honorStats');
 const { rollbackMatchStats } = require('./matchRollback');
 const { buildManualMatchRecord } = require('./manualMatchResult');
 
@@ -198,6 +199,18 @@ async function saveTodayRoom(room) {
   return saved;
 }
 
+async function updateTodayRoomStartTime(startTime) {
+  const room = await callApi('updateStartTime', { startTime });
+  clearCache();
+  return room;
+}
+
+async function adminUpdatePlayerScore(playerId, score) {
+  const player = await callApi('updatePlayerScore', { playerId, score });
+  clearCache();
+  return player;
+}
+
 async function uploadAvatar(tempFilePath) {
   if (!tempFilePath) {
     return '';
@@ -292,6 +305,7 @@ function callLocal(action, payload) {
     return clone(localRoom);
   }
   if (action === 'resetRoomSignups') {
+    localPlayers = applyFinalHonorAwards(localPlayers, localRoom.honors);
     localRoom = {
       ...localRoom,
       status: '\u62a5\u540d\u4e2d',
@@ -311,6 +325,20 @@ function callLocal(action, payload) {
     localRoom = clone(payload.room);
     return clone(localRoom);
   }
+  if (action === 'updateStartTime') {
+    localRoom = { ...localRoom, startTime: normalizeRoomStartTime(payload.startTime) };
+    return clone(localRoom);
+  }
+  if (action === 'updatePlayerScore') {
+    const score = normalizeScore(payload.score);
+    const playerId = String(payload.playerId || '').trim();
+    const player = localPlayers.find((item) => item.id === playerId);
+    if (!player) {
+      throw new Error('\u6ca1\u6709\u627e\u5230\u8fd9\u4f4d\u9009\u624b');
+    }
+    player.score = score;
+    return clone(player);
+  }
   if (action === 'recordMatchResult' || action === 'recordRadiantWin') {
     const winnerSide = action === 'recordRadiantWin' ? 'radiant' : payload.winnerSide;
     const match = buildManualMatchRecord(localRoom, winnerSide, Date.now());
@@ -319,9 +347,7 @@ function callLocal(action, payload) {
     return match;
   }
   if (action === 'voteHonor') {
-    const previousPlayerId = localRoom.votes && localRoom.votes[payload.honorType] ? localRoom.votes[payload.honorType][bootstrap.currentPlayer.id] : '';
     localRoom = voteHonor(localRoom, payload.honorType, bootstrap.currentPlayer.id, payload.playerId, localPlayers);
-    localPlayers = applyHonorStatVote(localPlayers, payload.honorType, previousPlayerId, payload.playerId);
     return clone(localRoom);
   }
   if (action === 'markPigeons') {
@@ -353,6 +379,8 @@ module.exports = {
   resetTodayRoomSignups,
   adminRemoveTodaySignup,
   saveTodayRoom,
+  updateTodayRoomStartTime,
+  adminUpdatePlayerScore,
   recordMatchResult,
   recordRadiantWin,
   voteTodayHonor,

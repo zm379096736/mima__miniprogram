@@ -19,19 +19,15 @@ function buildManualMatchUpdate(room, winnerSide) {
   const side = normalizeWinnerSide(winnerSide);
   assertTeams(room);
 
-  const loserSide = side === 'radiant' ? 'dire' : 'radiant';
   const winnerTeam = room.teams[side];
-  const loserTeam = room.teams[loserSide];
-  const mvp = (winnerTeam.players || [])[0] || {};
-  const pressure = (loserTeam.players || [])[0] || {};
 
   return {
     participantIds: idsFromTeam(room.teams.radiant).concat(idsFromTeam(room.teams.dire)),
     winnerIds: idsFromTeam(winnerTeam),
-    mvpId: mvp.id || '',
-    pressureId: pressure.id || '',
+    mvpId: '',
+    pressureId: '',
     winnerName: side === 'radiant' ? '\u5929\u8f89' : '\u591c\u9b47',
-    mvpName: mvp.name || '\u5f85\u6295\u7968'
+    mvpName: '\u5f85\u6295\u7968'
   };
 }
 

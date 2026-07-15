@@ -1,24 +1,15 @@
 const {
   getBootstrap,
   recordMatchResult,
-  voteTodayHonor,
   previewImportedMatch,
   confirmImportedMatch,
   deleteMatchRecord
 } = require('../../utils/cloudStore');
-const { getVoteOptions, normalizeHonors } = require('../../utils/honorVote');
-
 Page({
   data: {
+    isAdmin: false,
     teams: null,
     matches: [],
-    voteOptions: [],
-    voteOptionNames: [],
-    mvpIndex: 0,
-    touchIndex: 0,
-    honors: { mvp: null, touch: null },
-    mvpText: '暂无投票',
-    touchText: '暂无投票',
     importMatchId: '',
     importPreview: null,
     importWinnerText: '',
@@ -32,16 +23,10 @@ Page({
   async loadMatches() {
     try {
       const data = await getBootstrap(true);
-      const voteOptions = getVoteOptions(data.room, data.players);
-      const honors = normalizeHonors(data.room.honors);
       this.setData({
+        isAdmin: Boolean(data.isAdmin || (data.currentPlayer && data.currentPlayer.isAdmin)),
         teams: data.room.teams,
-        matches: data.matches,
-        voteOptions,
-        voteOptionNames: voteOptions.map((player) => player.name),
-        honors,
-        mvpText: honors.mvp ? `${honors.mvp.name}（${honors.mvp.votes}票）` : '暂无投票',
-        touchText: honors.touch ? `${honors.touch.name}（${honors.touch.votes}票）` : '暂无投票'
+        matches: data.matches
       });
     } catch (error) {
       wx.showToast({ title: error.message, icon: 'none' });
@@ -57,6 +42,14 @@ Page({
   },
 
   async recordWinner(winnerSide, winnerName) {
+    if (!this.data.isAdmin) {
+      wx.showModal({
+        title: '仅管理员可操作',
+        content: '仅管理员可记录比赛结果，请通知管理员提交',
+        showCancel: false
+      });
+      return;
+    }
     wx.showModal({
       title: '确认本场结果',
       content: `确定记录 ${winnerName} 胜利吗？确认后会更新本场 10 位选手的比赛积分和战绩。`,
@@ -155,36 +148,5 @@ Page({
         }
       }
     });
-  },
-
-  onMvpChange(event) {
-    this.setData({ mvpIndex: Number(event.detail.value) });
-  },
-
-  onTouchChange(event) {
-    this.setData({ touchIndex: Number(event.detail.value) });
-  },
-
-  async voteMvp() {
-    await this.voteHonor('mvp', this.data.mvpIndex, '今日 MVP');
-  },
-
-  async voteTouch() {
-    await this.voteHonor('touch', this.data.touchIndex, '今日大触');
-  },
-
-  async voteHonor(honorType, index, label) {
-    try {
-      const player = this.data.voteOptions[index];
-      if (!player) {
-        wx.showToast({ title: '暂无可投票选手', icon: 'none' });
-        return;
-      }
-      await voteTodayHonor(honorType, player.id);
-      await this.loadMatches();
-      wx.showToast({ title: label + ' 已投票', icon: 'success' });
-    } catch (error) {
-      wx.showToast({ title: error.message, icon: 'none' });
-    }
   }
 });

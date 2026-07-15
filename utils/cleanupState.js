@@ -1,4 +1,4 @@
-const HISTORY_RESET_VERSION = 3;
+const HISTORY_RESET_VERSION = 5;
 
 function emptyVotes() {
   return { mvp: {}, touch: {} };
@@ -29,7 +29,6 @@ function resetPlayerStats(player) {
     wins: 0,
     mvp: 0,
     touch: 0,
-    pigeon: 0,
     pressure: 0
   };
 }

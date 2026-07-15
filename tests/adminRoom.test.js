@@ -45,3 +45,18 @@ test('room page hides pigeon controls from non administrators', () => {
   assert.match(source, /wx:if="\{\{isAdmin\}\}" class="section panel admin-panel"/);
   assert.match(source, /wx:if="\{\{isAdmin && pigeonCandidates\.length\}\}"/);
 });
+
+test('cloud settles daily honor winners when admin starts a new round', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../cloudfunctions/api/index.js'), 'utf8');
+  const resetBlock = source.slice(
+    source.indexOf('async function resetRoomSignups'),
+    source.indexOf('async function adminRemoveSignup')
+  );
+  const voteBlock = source.slice(
+    source.indexOf('async function voteHonor'),
+    source.indexOf('async function settleHonorAwards')
+  );
+
+  assert.match(resetBlock, /settleHonorAwards\(room\.honors\)/);
+  assert.doesNotMatch(voteBlock, /db\.collection\('players'\)\.doc/);
+});

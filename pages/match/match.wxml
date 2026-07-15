@@ -52,36 +52,13 @@
     </view>
   </view>
 
-  <view wx:if="{{teams}}" class="section panel">
-    <view class="section-title">赛后投票</view>
-    <view class="subtitle">每个微信用户每项保留一票，重新投票会覆盖旧选择。</view>
-
-    <view class="vote-block">
-      <view class="player-name">今日 MVP</view>
-      <view class="player-meta">当前：{{mvpText}}</view>
-      <picker mode="selector" range="{{voteOptionNames}}" value="{{mvpIndex}}" bindchange="onMvpChange">
-        <view class="vote-picker">{{voteOptionNames[mvpIndex] || '选择选手'}}</view>
-      </picker>
-      <button class="primary-btn" bindtap="voteMvp">投给 MVP</button>
-    </view>
-
-    <view class="vote-block">
-      <view class="player-name">今日大触</view>
-      <view class="player-meta">当前：{{touchText}}</view>
-      <picker mode="selector" range="{{voteOptionNames}}" value="{{touchIndex}}" bindchange="onTouchChange">
-        <view class="vote-picker">{{voteOptionNames[touchIndex] || '选择选手'}}</view>
-      </picker>
-      <button class="primary-btn" bindtap="voteTouch">投给大触</button>
-    </view>
-  </view>
-
   <view class="section">
     <view class="section-title">历史战绩</view>
     <view wx:if="{{!matches.length}}" class="empty-panel">暂无历史战绩。</view>
     <view wx:for="{{matches}}" wx:key="id" class="match-card panel">
       <view class="match-main">
         <view class="player-name">{{item.title}}</view>
-        <view class="player-meta">胜方 {{item.winner}} / MVP {{item.mvp}}</view>
+        <view class="player-meta">胜方 {{item.winner}}</view>
       </view>
       <view class="match-actions">
         <text class="badge">差 {{item.scoreGap}}</text>

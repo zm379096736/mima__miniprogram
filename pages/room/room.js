@@ -4,12 +4,15 @@ const {
   leaveTodayRoom,
   resetTodayRoomSignups,
   adminRemoveTodaySignup,
+  adminUpdatePlayerScore,
   saveTodayRoom,
+  updateTodayRoomStartTime,
   markTodayPigeons
 } = require('../../utils/cloudStore');
 const { buildBalancedTeams, getBalanceReadiness } = require('../../utils/teamBalancer');
 const { isSignedUp, getSignupState } = require('../../utils/roomSignup');
-const { updateRoomStartTime } = require('../../utils/roomTime');
+const { normalizeRoomStartTime } = require('../../utils/roomTime');
+const { normalizeScore } = require('../../utils/playerProfile');
 const { isAdminOpenid } = require('../../utils/adminRoom');
 const { adminOpenids } = require('../../utils/config');
 
@@ -59,6 +62,11 @@ Page({
     startTime: '21:30',
     signups: [],
     waitlist: [],
+    adminPlayers: [],
+    adminPlayerNames: [],
+    adminPlayerIndex: 0,
+    adminPlayerId: '',
+    adminScore: '',
     pigeonCandidates: [],
     selectedPigeonIds: [],
     teams: null,
@@ -83,6 +91,9 @@ Page({
       const signupState = getSignupState(data.room, data.currentPlayer.id);
       const signedUp = isSignedUp(data.room, data.currentPlayer.id);
       const readiness = getBalanceReadiness(signups);
+      const adminPlayers = (data.players || []).map(withPositionText).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+      const selectedAdminIndex = Math.max(0, adminPlayers.findIndex((player) => player.id === this.data.adminPlayerId));
+      const selectedAdminPlayer = adminPlayers[selectedAdminIndex] || null;
       const teams = data.room.teams ? {
         radiant: decorateTeam(data.room.teams.radiant),
         dire: decorateTeam(data.room.teams.dire),
@@ -97,6 +108,11 @@ Page({
         startTime: data.room.startTime || '21:30',
         signups,
         waitlist,
+        adminPlayers,
+        adminPlayerNames: adminPlayers.map((player) => `${player.name}（${player.score}分）`),
+        adminPlayerIndex: selectedAdminIndex,
+        adminPlayerId: selectedAdminPlayer ? selectedAdminPlayer.id : '',
+        adminScore: selectedAdminPlayer ? String(selectedAdminPlayer.score) : '',
         pigeonCandidates: signups.concat(waitlist),
         selectedPigeonIds: [],
         teams,
@@ -114,12 +130,16 @@ Page({
   },
 
   async onStartTimeChange(event) {
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '只有管理员可以修改开 C 时间', icon: 'none' });
+      return;
+    }
     try {
-      const nextRoom = updateRoomStartTime(this.data.room, event.detail.value);
-      await saveTodayRoom(nextRoom);
+      const startTime = normalizeRoomStartTime(event.detail.value);
+      const nextRoom = await updateTodayRoomStartTime(startTime);
       this.setData({
         room: nextRoom,
-        startTime: nextRoom.startTime
+        startTime
       });
       wx.showToast({ title: '开 C 时间已更新', icon: 'success' });
     } catch (error) {
@@ -184,6 +204,38 @@ Page({
         }
       }
     });
+  },
+
+  onAdminPlayerChange(event) {
+    const index = Number(event.detail.value);
+    const player = this.data.adminPlayers[index];
+    if (!player) {
+      return;
+    }
+    this.setData({
+      adminPlayerIndex: index,
+      adminPlayerId: player.id,
+      adminScore: String(player.score)
+    });
+  },
+
+  onAdminScoreInput(event) {
+    this.setData({ adminScore: event.detail.value });
+  },
+
+  async saveAdminPlayerScore() {
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '只有管理员可以修改选手自评分', icon: 'none' });
+      return;
+    }
+    try {
+      const score = normalizeScore(this.data.adminScore);
+      await adminUpdatePlayerScore(this.data.adminPlayerId, score);
+      await this.loadRoom();
+      wx.showToast({ title: '选手自评分已更新', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message, icon: 'none' });
+    }
   },
 
   adminRemoveSignup(event) {

@@ -10,12 +10,16 @@
       <text>开 C 时间</text>
       <text class="badge">{{startTime}}</text>
     </view>
-    <picker mode="time" value="{{startTime}}" bindchange="onStartTimeChange">
+    <picker wx:if="{{isAdmin}}" mode="time" value="{{startTime}}" bindchange="onStartTimeChange">
       <view class="time-picker">
         <text>选择今晚开 C 时间</text>
         <text>{{startTime}}</text>
       </view>
     </picker>
+    <view wx:else class="time-picker read-only">
+      <text>今晚开 C 时间</text>
+      <text>{{startTime}}</text>
+    </view>
   </view>
 
   <view class="section panel identity-panel">
@@ -33,6 +37,15 @@
     </view>
     <view class="subtitle">如果昨天报名没满，今天可以一键清空正式报名、候补名单和分队，重新开始新一轮报名。</view>
     <button class="danger-btn" bindtap="resetSignups">清空报名并重开</button>
+
+    <view class="admin-score-editor">
+      <view class="section-title">选手自评分管理</view>
+      <picker mode="selector" range="{{adminPlayerNames}}" value="{{adminPlayerIndex}}" bindchange="onAdminPlayerChange">
+        <view class="admin-player-picker">{{adminPlayerNames[adminPlayerIndex] || '暂无选手'}}</view>
+      </picker>
+      <input class="input" type="number" value="{{adminScore}}" bindinput="onAdminScoreInput" placeholder="输入 0-150" />
+      <button class="primary-btn" bindtap="saveAdminPlayerScore" disabled="{{!adminPlayerId}}">保存选手自评分</button>
+    </view>
   </view>
 
   <view class="section panel signup-panel">

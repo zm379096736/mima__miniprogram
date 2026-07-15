@@ -31,6 +31,29 @@
   padding: 18rpx 0;
 }
 
+.time-picker.read-only {
+  color: rgba(247, 239, 224, 0.72);
+}
+
+.admin-score-editor {
+  border-top: 1rpx solid rgba(255, 255, 255, 0.12);
+  margin-top: 28rpx;
+  padding-top: 24rpx;
+}
+
+.admin-player-picker {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 8rpx;
+  color: #f7efe0;
+  margin-top: 14rpx;
+  padding: 20rpx 22rpx;
+}
+
+.admin-score-editor .input {
+  margin-top: 14rpx;
+}
+
 .remove-player-btn {
   flex-shrink: 0;
   min-width: 82rpx;

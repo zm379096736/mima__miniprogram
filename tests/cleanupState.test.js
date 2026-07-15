@@ -9,6 +9,7 @@ const {
 } = require('../utils/cleanupState');
 
 test('needsHistoryReset only runs before current reset version', () => {
+  assert.equal(HISTORY_RESET_VERSION, 5);
   assert.equal(needsHistoryReset({}), true);
   assert.equal(needsHistoryReset({ cleanupVersion: HISTORY_RESET_VERSION - 1 }), true);
   assert.equal(needsHistoryReset({ cleanupVersion: HISTORY_RESET_VERSION }), false);
@@ -56,7 +57,7 @@ test('resetPlayerStats keeps profile data and clears player stats', () => {
     wins: 0,
     mvp: 0,
     touch: 0,
-    pigeon: 0,
+    pigeon: 2,
     pressure: 0
   });
 });

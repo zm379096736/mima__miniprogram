@@ -35,10 +35,10 @@ test('buildManualMatchUpdate uses dire players when dire wins', () => {
   assert.deepEqual(buildManualMatchUpdate(room, 'dire'), {
     participantIds: ['r1', 'r2', 'd1', 'd2'],
     winnerIds: ['d1', 'd2'],
-    mvpId: 'd1',
-    pressureId: 'r1',
+    mvpId: '',
+    pressureId: '',
     winnerName: '夜魇',
-    mvpName: 'Dire Carry'
+    mvpName: '待投票'
   });
 });
 
@@ -47,11 +47,11 @@ test('buildManualMatchRecord stores rollback fields for selected winner side', (
 
   assert.equal(record.id, 'm123');
   assert.equal(record.winner, '夜魇');
-  assert.equal(record.mvp, 'Dire Carry');
+  assert.equal(record.mvp, '待投票');
   assert.equal(record.winnerSide, 'dire');
   assert.deepEqual(record.participantIds, ['r1', 'r2', 'd1', 'd2']);
   assert.deepEqual(record.winnerIds, ['d1', 'd2']);
-  assert.equal(record.mvpId, 'd1');
-  assert.equal(record.pressureId, 'r1');
+  assert.equal(record.mvpId, '');
+  assert.equal(record.pressureId, '');
   assert.equal(record.scoringVersion, 3);
 });

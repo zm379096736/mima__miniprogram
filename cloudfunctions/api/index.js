@@ -10,7 +10,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 const _ = db.command;
-const HISTORY_RESET_VERSION = 3;
+const HISTORY_RESET_VERSION = 5;
 const PIGEON_RESET_VERSION = 1;
 const LEGACY_SEED_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'];
 
@@ -33,7 +33,6 @@ function resetPlayerStatsData() {
     wins: 0,
     mvp: 0,
     touch: 0,
-    pigeon: 0,
     pressure: 0,
     updatedAt: db.serverDate()
   };
@@ -79,6 +78,18 @@ function normalizeScore(score) {
     throw new Error('\u5206\u6570\u8303\u56f4\u9700\u8981\u5728 0 \u5230 150 \u4e4b\u95f4');
   }
   return Math.round(value);
+}
+
+function normalizeStartTime(value) {
+  const text = String(value || '').trim();
+  if (!/^\d{2}:\d{2}$/.test(text)) {
+    throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u5f00 C \u65f6\u95f4');
+  }
+  const [hour, minute] = text.split(':').map(Number);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u5f00 C \u65f6\u95f4');
+  }
+  return text;
 }
 
 function normalizeMatchId(value) {
@@ -299,16 +310,6 @@ function normalizeWinnerSide(winnerSide) {
   throw new Error('\u672a\u77e5\u7684\u80dc\u65b9');
 }
 
-function honorStatField(honorType) {
-  if (honorType === 'mvp') {
-    return 'mvp';
-  }
-  if (honorType === 'touch') {
-    return 'touch';
-  }
-  throw new Error('\u672a\u77e5\u7684\u6295\u7968\u7c7b\u578b');
-}
-
 function teamIds(team) {
   return ((team && team.players) || []).map((player) => player.id).filter(Boolean);
 }
@@ -318,18 +319,14 @@ function buildManualMatchUpdate(room, winnerSide) {
   if (!room.teams || !room.teams.radiant || !room.teams.dire) {
     throw new Error('\u8fd8\u6ca1\u6709\u5b8c\u6210\u5206\u961f');
   }
-  const loserSide = side === 'radiant' ? 'dire' : 'radiant';
   const winnerTeam = room.teams[side];
-  const loserTeam = room.teams[loserSide];
-  const mvp = (winnerTeam.players || [])[0] || {};
-  const pressure = (loserTeam.players || [])[0] || {};
   return {
     participantIds: teamIds(room.teams.radiant).concat(teamIds(room.teams.dire)),
     winnerIds: teamIds(winnerTeam),
-    mvpId: mvp.id || '',
-    pressureId: pressure.id || '',
+    mvpId: '',
+    pressureId: '',
     winnerName: side === 'radiant' ? '\u5929\u8f89' : '\u591c\u9b47',
-    mvpName: mvp.name || '\u5f85\u6295\u7968'
+    mvpName: '\u5f85\u6295\u7968'
   };
 }
 
@@ -551,13 +548,14 @@ async function getRoomDoc() {
   return room;
 }
 
-async function updateRoom(room) {
+async function updateRoom(room, options = {}) {
   const existed = await getRoomDoc();
+  const allowStartTimeChange = Boolean(options.allowStartTimeChange);
   const cleanRoom = {
     id: 'today',
     title: room.title || existed.title,
     status: room.status || existed.status,
-    startTime: room.startTime || existed.startTime,
+    startTime: allowStartTimeChange ? room.startTime : existed.startTime,
     signups: room.signups || existed.signups || [],
     waitlist: room.waitlist || existed.waitlist || [],
     teams: room.teams || null,
@@ -576,6 +574,29 @@ async function updateRoom(room) {
     }
   });
   return { ...existed, ...cleanRoom };
+}
+
+async function updateStartTime(openid, startTime) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u4fee\u6539\u5f00 C \u65f6\u95f4');
+  const room = await getRoomDoc();
+  return updateRoom(
+    { ...room, startTime: normalizeStartTime(startTime) },
+    { allowStartTimeChange: true }
+  );
+}
+
+async function updatePlayerScore(openid, playerId, score) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u4fee\u6539\u9009\u624b\u81ea\u8bc4\u5206');
+  const targetId = String(playerId || '').trim();
+  const player = await getById('players', targetId);
+  if (!player) {
+    throw new Error('\u6ca1\u6709\u627e\u5230\u8fd9\u4f4d\u9009\u624b');
+  }
+  const nextScore = normalizeScore(score);
+  await db.collection('players').doc(player._id).update({
+    data: { score: nextScore, updatedAt: db.serverDate() }
+  });
+  return { ...player, score: nextScore };
 }
 
 async function resetPigeonStatsOnce(openid, room) {
@@ -597,7 +618,6 @@ async function resetPigeonStatsOnce(openid, room) {
 }
 
 async function voteHonor(openid, honorType, playerId) {
-  const statField = honorStatField(honorType);
   const room = await getRoomDoc();
   const players = (await db.collection('players').limit(100).get()).data;
   const options = getVoteOptions(room, players);
@@ -605,29 +625,6 @@ async function voteHonor(openid, honorType, playerId) {
     throw new Error('\u53ea\u80fd\u6295\u7ed9\u4eca\u65e5\u5f00 C \u9009\u624b');
   }
   const votes = { ...emptyVotes(), ...(room.votes || {}) };
-  const previousPlayerId = votes[honorType] && votes[honorType][openid];
-  if (previousPlayerId && previousPlayerId !== playerId) {
-    const previousPlayer = players.find((player) => player.id === previousPlayerId);
-    if (previousPlayer && previousPlayer._id) {
-      await db.collection('players').doc(previousPlayer._id).update({
-        data: {
-          [statField]: Math.max(0, Number(previousPlayer[statField] || 0) - 1),
-          updatedAt: db.serverDate()
-        }
-      });
-    }
-  }
-  if (previousPlayerId !== playerId) {
-    const nextPlayer = players.find((player) => player.id === playerId);
-    if (nextPlayer && nextPlayer._id) {
-      await db.collection('players').doc(nextPlayer._id).update({
-        data: {
-          [statField]: Number(nextPlayer[statField] || 0) + 1,
-          updatedAt: db.serverDate()
-        }
-      });
-    }
-  }
   votes[honorType] = {
     ...(votes[honorType] || {}),
     [openid]: playerId
@@ -637,6 +634,38 @@ async function voteHonor(openid, honorType, playerId) {
     votes,
     honors: tallyHonors(votes, players)
   });
+}
+
+async function settleHonorAwards(honors) {
+  const awardsByPlayer = {};
+  const addAward = (field, honor) => {
+    const playerId = honor && honor.playerId;
+    if (!playerId) {
+      return;
+    }
+    awardsByPlayer[playerId] = { ...(awardsByPlayer[playerId] || {}), [field]: 1 };
+  };
+  addAward('mvp', honors && honors.mvp);
+  addAward('touch', honors && honors.touch);
+
+  if (!Object.keys(awardsByPlayer).length) {
+    return;
+  }
+  const players = (await db.collection('players').limit(100).get()).data;
+  for (const player of players) {
+    const awards = awardsByPlayer[player.id];
+    if (!awards) {
+      continue;
+    }
+    const data = { updatedAt: db.serverDate() };
+    if (awards.mvp) {
+      data.mvp = Number(player.mvp || 0) + 1;
+    }
+    if (awards.touch) {
+      data.touch = Number(player.touch || 0) + 1;
+    }
+    await db.collection('players').doc(player._id).update({ data });
+  }
 }
 
 async function joinRoom(openid) {
@@ -675,6 +704,7 @@ async function leaveRoom(openid) {
 async function resetRoomSignups(openid) {
   assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u91cd\u5f00\u62a5\u540d');
   const room = await getRoomDoc();
+  await settleHonorAwards(room.honors);
   return updateRoom({
     ...room,
     status: '\u62a5\u540d\u4e2d',
@@ -745,7 +775,8 @@ async function saveProfile(openid, form) {
   return { ...current, ...data };
 }
 
-async function recordMatchResult(winnerSide) {
+async function recordMatchResult(openid, winnerSide) {
+  assertAdmin(openid, '只有管理员可以记录比赛结果');
   const room = await getRoomDoc();
   if (!room.teams) {
     throw new Error('\u8fd8\u6ca1\u6709\u5b8c\u6210\u5206\u961f');
@@ -763,12 +794,6 @@ async function recordMatchResult(winnerSide) {
     const points = scoreAfterMatch(player.points, winnerIds.has(player.id));
     if (winnerIds.has(player.id)) {
       data.wins = Number(player.wins || 0) + 1;
-    }
-    if (player.id === result.mvpId) {
-      data.mvp = Number(player.mvp || 0) + 1;
-    }
-    if (player.id === result.pressureId) {
-      data.pressure = Number(player.pressure || 0) + 1;
     }
     data.points = points;
     await db.collection('players').doc(player._id).update({ data });
@@ -792,8 +817,8 @@ async function recordMatchResult(winnerSide) {
   return match;
 }
 
-async function recordRadiantWin() {
-  return recordMatchResult('radiant');
+async function recordRadiantWin(openid) {
+  return recordMatchResult(openid, 'radiant');
 }
 
 async function previewImportedMatch(matchId) {
@@ -930,14 +955,20 @@ exports.main = async (event) => {
   if (action === 'saveRoom') {
     return updateRoom(event.room || {});
   }
+  if (action === 'updateStartTime') {
+    return updateStartTime(openid, event.startTime);
+  }
+  if (action === 'updatePlayerScore') {
+    return updatePlayerScore(openid, event.playerId, event.score);
+  }
   if (action === 'recordRadiantWin') {
-    return recordRadiantWin();
+    return recordRadiantWin(openid);
   }
   if (action === 'recordMatchResult') {
-    return recordMatchResult(event.winnerSide);
+    return recordMatchResult(openid, event.winnerSide);
   }
   if (action === 'voteHonor') {
-    return voteHonor(openid, event.honorType, event.playerId);
+    throw new Error('投票功能暂未开放');
   }
   if (action === 'markPigeons') {
     return markPigeons(openid, event.pigeonIds || []);
