@@ -19,6 +19,7 @@ Page({
   data: {
     player: {},
     avatarSrc: DEFAULT_AVATAR,
+    needPrivacyAuthorization: false,
     positionText: '',
     form: {
       name: '',
@@ -32,6 +33,27 @@ Page({
 
   async onShow() {
     await this.loadPlayer();
+    this.checkPrivacyAuthorization();
+  },
+
+  checkPrivacyAuthorization() {
+    if (typeof wx === 'undefined' || !wx.getPrivacySetting) {
+      this.setData({ needPrivacyAuthorization: false });
+      return;
+    }
+    wx.getPrivacySetting({
+      success: (result) => {
+        this.setData({ needPrivacyAuthorization: Boolean(result.needAuthorization) });
+      },
+      fail: () => {
+        this.setData({ needPrivacyAuthorization: false });
+      }
+    });
+  },
+
+  onAgreePrivacyAuthorization() {
+    this.setData({ needPrivacyAuthorization: false });
+    wx.showToast({ title: '已同意，请点击头像进行选择', icon: 'none' });
   },
 
   async loadPlayer() {
@@ -64,9 +86,14 @@ Page({
   },
 
   async onChooseAvatar(event) {
+    const tempAvatarUrl = event.detail && event.detail.avatarUrl;
+    if (!tempAvatarUrl) {
+      wx.showToast({ title: '没有获取到头像，请重试', icon: 'none' });
+      return;
+    }
     try {
       wx.showLoading({ title: '头像上传中' });
-      const avatar = await uploadAvatarWithSrc(event.detail.avatarUrl);
+      const avatar = await uploadAvatarWithSrc(tempAvatarUrl);
       this.setData({
         avatarSrc: avatar.avatarSrc || DEFAULT_AVATAR,
         'form.avatarUrl': avatar.avatarUrl

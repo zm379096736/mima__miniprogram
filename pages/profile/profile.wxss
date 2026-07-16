@@ -41,25 +41,41 @@
 }
 
 .avatar-editor {
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
   padding: 18rpx;
   border: 2rpx solid rgba(255, 255, 255, 0.08);
   border-radius: 16rpx;
   background: rgba(255, 255, 255, 0.04);
 }
 
+.avatar-choose-btn,
+.avatar-privacy-btn {
+  align-items: center;
+  background: transparent;
+  color: #f7f4ea;
+  display: flex;
+  gap: 20rpx;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.avatar-choose-btn::after,
+.avatar-privacy-btn::after {
+  border: 0;
+}
+
+.avatar-choose-copy {
+  flex: 1;
+  min-width: 0;
+}
+
 .avatar-preview {
+  flex-shrink: 0;
   width: 92rpx;
   height: 92rpx;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
-}
-
-.avatar-btn {
-  flex: 1;
-  margin: 0;
 }
 
 .form-label {

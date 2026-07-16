@@ -127,6 +127,16 @@ Page({
     }
   },
 
+  openMatchDetail(event) {
+    const matchId = event.currentTarget.dataset.id;
+    if (!matchId) {
+      return;
+    }
+    wx.navigateTo({
+      url: `/pages/match-detail/match-detail?id=${encodeURIComponent(matchId)}`
+    });
+  },
+
   async deleteMatch(event) {
     const matchId = event.currentTarget.dataset.id;
     const title = event.currentTarget.dataset.title || '这条战绩';

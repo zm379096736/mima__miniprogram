@@ -41,8 +41,20 @@
     <view class="section-title">编辑选手卡</view>
 
     <view class="avatar-editor">
-      <image class="avatar-preview" src="{{avatarSrc}}" mode="aspectFill"></image>
-      <button class="ghost-btn avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">选择微信头像</button>
+      <button wx:if="{{needPrivacyAuthorization}}" class="avatar-privacy-btn" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onAgreePrivacyAuthorization">
+        <image class="avatar-preview" src="{{avatarSrc}}" mode="aspectFill"></image>
+        <view class="avatar-choose-copy">
+          <text class="player-name">同意隐私指引</text>
+          <text class="player-meta">同意后才可以选择微信头像</text>
+        </view>
+      </button>
+      <button class="avatar-choose-btn" wx:else open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image class="avatar-preview" src="{{avatarSrc}}" mode="aspectFill"></image>
+        <view class="avatar-choose-copy">
+          <text class="player-name">选择微信头像</text>
+          <text class="player-meta">点击头像或此区域进行更换</text>
+        </view>
+      </button>
     </view>
 
     <view class="form-label">选手名</view>

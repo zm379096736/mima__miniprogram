@@ -4,6 +4,7 @@
     "pages/room/room",
     "pages/rank/rank",
     "pages/match/match",
+    "pages/match-detail/match-detail",
     "pages/profile/profile"
   ],
   "window": {
@@ -12,6 +13,7 @@
     "navigationBarTextStyle": "white",
     "backgroundColor": "#111318"
   },
+  "__usePrivacyCheck__": true,
   "tabBar": {
     "color": "#8d98a8",
     "selectedColor": "#f1c40f",

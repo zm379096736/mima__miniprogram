@@ -1,0 +1,7 @@
+.team-card {
+  margin-top: 24rpx;
+}
+
+.player-row {
+  padding: 14rpx 0;
+}

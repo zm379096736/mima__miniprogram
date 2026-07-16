@@ -7,7 +7,9 @@ const room = {
   startTime: '21:30',
   signups: [],
   waitlist: [],
-  teams: null
+  teams: null,
+  roundNumber: 0,
+  rotationQueue: []
 };
 
 const matches = [];

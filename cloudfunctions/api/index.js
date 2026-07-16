@@ -5,14 +5,13 @@ const { needsPigeonReset } = require('./pigeonReset');
 const { uniqueAvatarFileIds, applyAvatarTempUrls } = require('./avatarUrls');
 const { scoreAfterMatch, scoreAfterRollback } = require('./matchScoring');
 const { removeSignupFromRoom } = require('./adminSignup');
+const { swapTeamPlayers } = require('./teamEditor');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 const _ = db.command;
-const HISTORY_RESET_VERSION = 5;
 const PIGEON_RESET_VERSION = 1;
-const LEGACY_SEED_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'];
 
 function emptyVotes() {
   return { mvp: {}, touch: {} };
@@ -20,22 +19,6 @@ function emptyVotes() {
 
 function emptyHonors() {
   return { mvp: null, touch: null };
-}
-
-function needsHistoryReset(room) {
-  return Number((room && room.cleanupVersion) || 0) < HISTORY_RESET_VERSION;
-}
-
-function resetPlayerStatsData() {
-  return {
-    points: 0,
-    matches: 0,
-    wins: 0,
-    mvp: 0,
-    touch: 0,
-    pressure: 0,
-    updatedAt: db.serverDate()
-  };
 }
 
 const STEAM64_OFFSET = 76561197960265728n;
@@ -314,6 +297,19 @@ function teamIds(team) {
   return ((team && team.players) || []).map((player) => player.id).filter(Boolean);
 }
 
+function snapshotTeam(team) {
+  return ((team && team.players) || []).map((player) => {
+    const snapshot = { playerId: player.id, name: player.name };
+    if (player.assignedPosition) {
+      snapshot.assignedPosition = player.assignedPosition;
+    }
+    if (player.score !== undefined) {
+      snapshot.score = player.score;
+    }
+    return snapshot;
+  });
+}
+
 function buildManualMatchUpdate(room, winnerSide) {
   const side = normalizeWinnerSide(winnerSide);
   if (!room.teams || !room.teams.radiant || !room.teams.dire) {
@@ -383,43 +379,6 @@ async function ensureCurrentPlayer(openid) {
   return { ...player, _id: result._id };
 }
 
-async function cleanupLegacySeedData() {
-  const seedResult = await db.collection('players').where({ isSeed: true }).limit(100).get();
-  const docsByDocId = {};
-  (seedResult.data || []).forEach((player) => {
-    docsByDocId[player._id] = player;
-  });
-  for (const legacyId of LEGACY_SEED_IDS) {
-    const legacyPlayer = await getById('players', legacyId);
-    if (legacyPlayer) {
-      docsByDocId[legacyPlayer._id] = legacyPlayer;
-    }
-  }
-  const seedDocs = Object.keys(docsByDocId).map((docId) => docsByDocId[docId]);
-  const seedIds = seedDocs.map((player) => player.id).filter(Boolean);
-
-  for (const player of seedDocs) {
-    await db.collection('players').doc(player._id).remove();
-  }
-
-  const room = await getById('rooms', 'today');
-  if (room && seedIds.length) {
-    const removed = new Set(seedIds);
-    await updateRoom({
-      ...room,
-      signups: (room.signups || []).filter((id) => !removed.has(id)),
-      waitlist: (room.waitlist || []).filter((id) => !removed.has(id)),
-      teams: null,
-      status: '\u62a5\u540d\u4e2d'
-    });
-  }
-
-  const sampleMatch = await getById('matches', 'm1');
-  if (sampleMatch) {
-    await db.collection('matches').doc(sampleMatch._id).remove();
-  }
-}
-
 async function ensureRoom() {
   const existed = await getById('rooms', 'today');
   if (existed) {
@@ -433,9 +392,10 @@ async function ensureRoom() {
     signups: [],
     waitlist: [],
     teams: null,
+    roundNumber: 0,
+    rotationQueue: [],
     votes: emptyVotes(),
     honors: emptyHonors(),
-    cleanupVersion: HISTORY_RESET_VERSION,
     pigeonResetVersion: 0,
     updatedAt: db.serverDate()
   };
@@ -445,31 +405,6 @@ async function ensureRoom() {
 
 async function ensureMatches() {
   return true;
-}
-
-async function resetHistoryAndHonorsOnce(room) {
-  if (!needsHistoryReset(room)) {
-    return room;
-  }
-
-  const matchResult = await db.collection('matches').limit(100).get();
-  for (const match of matchResult.data || []) {
-    await db.collection('matches').doc(match._id).remove();
-  }
-
-  const playerResult = await db.collection('players').limit(100).get();
-  for (const player of playerResult.data || []) {
-    await db.collection('players').doc(player._id).update({
-      data: resetPlayerStatsData()
-    });
-  }
-
-  return updateRoom({
-    ...room,
-    votes: emptyVotes(),
-    honors: emptyHonors(),
-    cleanupVersion: HISTORY_RESET_VERSION
-  });
 }
 
 async function withPlayerAvatarSrc(players) {
@@ -518,9 +453,8 @@ function withTeamAvatarSrc(room, players) {
 }
 
 async function bootstrap(openid) {
-  await cleanupLegacySeedData();
   const currentPlayer = await ensureCurrentPlayer(openid);
-  let room = await resetHistoryAndHonorsOnce(await ensureRoom());
+  let room = await ensureRoom();
   room = await resetPigeonStatsOnce(openid, room);
   await ensureMatches();
   const players = await withPlayerAvatarSrc((await db.collection('players').limit(100).get()).data.map((player) => ({
@@ -559,16 +493,20 @@ async function updateRoom(room, options = {}) {
     signups: room.signups || existed.signups || [],
     waitlist: room.waitlist || existed.waitlist || [],
     teams: room.teams || null,
+    roundNumber: Number(room.roundNumber ?? existed.roundNumber ?? 0),
+    rotationQueue: room.rotationQueue || existed.rotationQueue || [],
     votes: room.votes || existed.votes || emptyVotes(),
     honors: room.honors || existed.honors || emptyHonors(),
     cleanupVersion: room.cleanupVersion || existed.cleanupVersion || 0,
     pigeonResetVersion: room.pigeonResetVersion || existed.pigeonResetVersion || 0,
+    competitionResetAt: room.competitionResetAt || existed.competitionResetAt || null,
     updatedAt: db.serverDate()
   };
   await db.collection('rooms').doc(existed._id).update({
     data: {
       ...cleanRoom,
       teams: _.set(cleanRoom.teams),
+      rotationQueue: _.set(cleanRoom.rotationQueue),
       votes: _.set(cleanRoom.votes),
       honors: _.set(cleanRoom.honors)
     }
@@ -597,6 +535,81 @@ async function updatePlayerScore(openid, playerId, score) {
     data: { score: nextScore, updatedAt: db.serverDate() }
   });
   return { ...player, score: nextScore };
+}
+
+async function adminSwapTeams(openid, radiantPlayerId, direPlayerId) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u8c03\u6574\u961f\u4f0d');
+  const room = await getRoomDoc();
+  const teams = swapTeamPlayers(room.teams, radiantPlayerId, direPlayerId);
+  return updateRoom({ ...room, teams, status: '\u5df2\u5206\u961f' });
+}
+
+function validateRoundTeams(teams, registeredIds) {
+  const radiant = (teams && teams.radiant && teams.radiant.players) || [];
+  const dire = (teams && teams.dire && teams.dire.players) || [];
+  const players = radiant.concat(dire);
+  const playerIds = players.map((player) => player.id).filter(Boolean);
+  const registered = new Set(registeredIds);
+  if (radiant.length !== 5 || dire.length !== 5 || new Set(playerIds).size !== 10) {
+    throw new Error('\u4e0b\u4e00\u628a\u9635\u5bb9\u5fc5\u987b\u662f\u4e0d\u91cd\u590d\u7684 10 \u4eba');
+  }
+  if (playerIds.some((playerId) => !registered.has(playerId))) {
+    throw new Error('\u4e0b\u4e00\u628a\u9635\u5bb9\u5305\u542b\u672a\u62a5\u540d\u9009\u624b');
+  }
+  const positionsComplete = [radiant, dire].every((side) => (
+    side.map((player) => Number(player.assignedPosition)).sort().join(',') === '1,2,3,4,5'
+  ));
+  if (!positionsComplete) {
+    throw new Error('\u6bcf\u961f\u5fc5\u987b\u5305\u542b 1\u30012\u30013\u30014\u30015 \u53f7\u4f4d');
+  }
+  return new Set(playerIds);
+}
+
+async function adminAdvanceRound(openid, payload) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u751f\u6210\u4e0b\u4e00\u628a\u9635\u5bb9');
+  const room = await getRoomDoc();
+  if (!room.teams) {
+    throw new Error('\u8fd8\u6ca1\u6709\u5f53\u524d\u5206\u961f');
+  }
+  const registeredIds = [...(room.signups || []), ...(room.waitlist || [])];
+  const rosterIds = validateRoundTeams(payload.teams, registeredIds);
+  const rotationQueue = uniqueIds(payload.rotationQueue || []).filter((playerId) => (
+    registeredIds.includes(playerId) && !rosterIds.has(playerId)
+  ));
+  const roundNumber = Number(room.roundNumber || 1) + 1;
+  return updateRoom({
+    ...room,
+    teams: payload.teams,
+    rotationQueue,
+    roundNumber,
+    status: `\u7b2c ${roundNumber} \u628a\u5df2\u5206\u961f`
+  });
+}
+
+async function resetCompetitionData(openid) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u91cd\u7f6e\u5168\u90e8\u6bd4\u8d5b\u6570\u636e');
+
+  await db.collection('players').where({ _id: _.exists(true) }).update({
+    data: {
+      points: 0,
+      matches: 0,
+      wins: 0,
+      mvp: 0,
+      touch: 0,
+      pressure: 0,
+      updatedAt: db.serverDate()
+    }
+  });
+  await db.collection('matches').where({ _id: _.exists(true) }).remove();
+
+  const room = await getRoomDoc();
+  await updateRoom({
+    ...room,
+    votes: emptyVotes(),
+    honors: emptyHonors(),
+    competitionResetAt: db.serverDate()
+  });
+  return { reset: true };
 }
 
 async function resetPigeonStatsOnce(openid, room) {
@@ -711,6 +724,8 @@ async function resetRoomSignups(openid) {
     signups: [],
     waitlist: [],
     teams: null,
+    roundNumber: 0,
+    rotationQueue: [],
     votes: emptyVotes(),
     honors: emptyHonors()
   });
@@ -809,6 +824,8 @@ async function recordMatchResult(openid, winnerSide) {
     winnerIds: result.winnerIds,
     mvpId: result.mvpId,
     pressureId: result.pressureId,
+    radiant: snapshotTeam(room.teams.radiant),
+    dire: snapshotTeam(room.teams.dire),
     scoreGap: room.teams.scoreGap,
     scoringVersion: 3,
     createdAt: db.serverDate()
@@ -960,6 +977,15 @@ exports.main = async (event) => {
   }
   if (action === 'updatePlayerScore') {
     return updatePlayerScore(openid, event.playerId, event.score);
+  }
+  if (action === 'adminSwapTeams') {
+    return adminSwapTeams(openid, event.radiantPlayerId, event.direPlayerId);
+  }
+  if (action === 'adminAdvanceRound') {
+    return adminAdvanceRound(openid, event);
+  }
+  if (action === 'resetCompetitionData') {
+    return resetCompetitionData(openid);
   }
   if (action === 'recordRadiantWin') {
     return recordRadiantWin(openid);

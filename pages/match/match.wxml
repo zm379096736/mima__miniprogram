@@ -55,14 +55,14 @@
   <view class="section">
     <view class="section-title">历史战绩</view>
     <view wx:if="{{!matches.length}}" class="empty-panel">暂无历史战绩。</view>
-    <view wx:for="{{matches}}" wx:key="id" class="match-card panel">
+    <view wx:for="{{matches}}" wx:key="id" class="match-card panel" data-id="{{item.id}}" bindtap="openMatchDetail">
       <view class="match-main">
         <view class="player-name">{{item.title}}</view>
         <view class="player-meta">胜方 {{item.winner}}</view>
       </view>
       <view class="match-actions">
         <text class="badge">差 {{item.scoreGap}}</text>
-        <button class="danger-btn mini-btn" data-id="{{item.id}}" data-title="{{item.title}}" bindtap="deleteMatch">删除</button>
+        <button class="danger-btn mini-btn" data-id="{{item.id}}" data-title="{{item.title}}" catchtap="deleteMatch">删除</button>
       </view>
     </view>
   </view>

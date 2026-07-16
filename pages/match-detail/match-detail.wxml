@@ -1,0 +1,41 @@
+<view class="screen">
+  <view wx:if="{{loading}}" class="empty-panel">正在加载战绩...</view>
+
+  <block wx:if="{{detail}}">
+    <view class="hero">
+      <view class="eyebrow">{{detail.imported ? 'DOTA MATCH' : 'MIMA INHOUSE'}}</view>
+      <view class="title">{{detail.title}}</view>
+      <view class="subtitle">胜方 {{detail.winner}}</view>
+    </view>
+
+    <view class="section team-card radiant">
+      <view class="team-head">
+        <text>天辉</text>
+        <text wx:if="{{detail.winnerSide === 'radiant' || detail.radiantWin}}" class="badge blue">胜利</text>
+      </view>
+      <view wx:for="{{detail.radiant}}" wx:key="playerId" class="player-row">
+        <view class="player-main">
+          <view class="player-name">{{item.name}}</view>
+          <view wx:if="{{detail.imported}}" class="player-meta">K / D / A：{{item.kdaText}}</view>
+          <view wx:elif="{{item.assignedPosition}}" class="player-meta">{{item.assignedPosition}}号位 / 自评分 {{item.score}}</view>
+        </view>
+        <text class="badge blue">天辉</text>
+      </view>
+    </view>
+
+    <view class="section team-card dire">
+      <view class="team-head">
+        <text>夜魇</text>
+        <text wx:if="{{detail.winnerSide === 'dire' || (detail.imported && !detail.radiantWin)}}" class="badge red">胜利</text>
+      </view>
+      <view wx:for="{{detail.dire}}" wx:key="playerId" class="player-row">
+        <view class="player-main">
+          <view class="player-name">{{item.name}}</view>
+          <view wx:if="{{detail.imported}}" class="player-meta">K / D / A：{{item.kdaText}}</view>
+          <view wx:elif="{{item.assignedPosition}}" class="player-meta">{{item.assignedPosition}}号位 / 自评分 {{item.score}}</view>
+        </view>
+        <text class="badge red">夜魇</text>
+      </view>
+    </view>
+  </block>
+</view>

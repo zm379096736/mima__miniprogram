@@ -15,6 +15,19 @@ function idsFromTeam(team) {
   return ((team && team.players) || []).map((player) => player.id).filter(Boolean);
 }
 
+function snapshotTeam(team) {
+  return ((team && team.players) || []).map((player) => {
+    const snapshot = { playerId: player.id, name: player.name };
+    if (player.assignedPosition) {
+      snapshot.assignedPosition = player.assignedPosition;
+    }
+    if (player.score !== undefined) {
+      snapshot.score = player.score;
+    }
+    return snapshot;
+  });
+}
+
 function buildManualMatchUpdate(room, winnerSide) {
   const side = normalizeWinnerSide(winnerSide);
   assertTeams(room);
@@ -44,6 +57,8 @@ function buildManualMatchRecord(room, winnerSide, timestamp) {
     winnerIds: update.winnerIds,
     mvpId: update.mvpId,
     pressureId: update.pressureId,
+    radiant: snapshotTeam(room.teams.radiant),
+    dire: snapshotTeam(room.teams.dire),
     scoreGap: room.teams.scoreGap || 0,
     scoringVersion: 3
   };

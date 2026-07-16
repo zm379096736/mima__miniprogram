@@ -37,6 +37,7 @@
     </view>
     <view class="subtitle">如果昨天报名没满，今天可以一键清空正式报名、候补名单和分队，重新开始新一轮报名。</view>
     <button class="danger-btn" bindtap="resetSignups">清空报名并重开</button>
+    <button class="danger-btn reset-competition-btn" bindtap="resetCompetitionData">重置全部比赛数据</button>
 
     <view class="admin-score-editor">
       <view class="section-title">选手自评分管理</view>
@@ -114,6 +115,31 @@
   </view>
 
   <view wx:if="{{teams}}" class="section">
+    <view class="panel round-rotation-panel">
+      <view class="section-title">
+        <text>第 {{roundNumber}} 把阵容</text>
+        <text class="badge">下把优先 {{rotationQueuePlayers.length}} 人</text>
+      </view>
+      <view wx:if="{{rotationQueuePlayers.length}}" class="rotation-names">
+        <text wx:for="{{rotationQueuePlayers}}" wx:key="id" class="badge">{{item.name}}</text>
+      </view>
+      <view wx:else class="subtitle">当前没有候补，下一把会从本把参赛者中随机生成阵容。</view>
+      <button wx:if="{{isAdmin}}" class="primary-btn" bindtap="generateNextRound">生成下一把阵容</button>
+    </view>
+
+    <view wx:if="{{isAdmin}}" class="panel team-swap-panel">
+      <view class="section-title">
+        <text>手动调整队伍</text>
+        <text class="badge red">ADMIN</text>
+      </view>
+      <view class="subtitle">从天辉和夜魇各选择一名选手进行交换；两人会占据对方原来的位置。</view>
+      <view class="swap-selection">
+        <text class="badge blue">天辉：{{selectedRadiantPlayerName || '未选择'}}</text>
+        <text class="badge red">夜魇：{{selectedDirePlayerName || '未选择'}}</text>
+      </view>
+      <button class="primary-btn" bindtap="swapSelectedPlayers" disabled="{{!selectedRadiantPlayerId || !selectedDirePlayerId}}">交换选手</button>
+    </view>
+
     <view class="team-card radiant">
       <view class="team-head">
         <text>天辉</text>
@@ -126,6 +152,7 @@
           <view class="player-meta">自评分 {{item.score}} / 偏好 {{item.positionText}}</view>
         </view>
         <text class="badge blue">{{item.assignedPosition}}号位</text>
+        <button wx:if="{{isAdmin}}" class="team-select-btn {{selectedRadiantPlayerId === item.id ? 'selected' : ''}}" data-player-id="{{item.id}}" data-player-name="{{item.name}}" bindtap="selectRadiantPlayer">{{selectedRadiantPlayerId === item.id ? '已选' : '选择'}}</button>
       </view>
     </view>
 
@@ -141,6 +168,7 @@
           <view class="player-meta">自评分 {{item.score}} / 偏好 {{item.positionText}}</view>
         </view>
         <text class="badge red">{{item.assignedPosition}}号位</text>
+        <button wx:if="{{isAdmin}}" class="team-select-btn {{selectedDirePlayerId === item.id ? 'selected' : ''}}" data-player-id="{{item.id}}" data-player-name="{{item.name}}" bindtap="selectDirePlayer">{{selectedDirePlayerId === item.id ? '已选' : '选择'}}</button>
       </view>
     </view>
   </view>

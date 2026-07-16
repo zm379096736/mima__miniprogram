@@ -54,4 +54,12 @@ test('buildManualMatchRecord stores rollback fields for selected winner side', (
   assert.equal(record.mvpId, '');
   assert.equal(record.pressureId, '');
   assert.equal(record.scoringVersion, 3);
+  assert.deepEqual(record.radiant, [
+    { playerId: 'r1', name: 'Radiant Carry' },
+    { playerId: 'r2', name: 'Radiant Mid' }
+  ]);
+  assert.deepEqual(record.dire, [
+    { playerId: 'd1', name: 'Dire Carry' },
+    { playerId: 'd2', name: 'Dire Mid' }
+  ]);
 });

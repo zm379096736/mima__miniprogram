@@ -8,6 +8,8 @@ const { normalizeMatchRecordId, removeMatchById } = require('./matchHistory');
 const { applyFinalHonorAwards } = require('./honorStats');
 const { rollbackMatchStats } = require('./matchRollback');
 const { buildManualMatchRecord } = require('./manualMatchResult');
+const { swapTeamPlayers } = require('./teamEditor');
+const { resetCompetitionStats } = require('./competitionReset');
 
 let cache = null;
 let localPlayers = JSON.parse(JSON.stringify(seed.players));
@@ -211,6 +213,24 @@ async function adminUpdatePlayerScore(playerId, score) {
   return player;
 }
 
+async function adminSwapTeamPlayers(radiantPlayerId, direPlayerId) {
+  const room = await callApi('adminSwapTeams', { radiantPlayerId, direPlayerId });
+  clearCache();
+  return room;
+}
+
+async function adminSaveNextRound(teams, rotationQueue) {
+  const room = await callApi('adminAdvanceRound', { teams, rotationQueue });
+  clearCache();
+  return room;
+}
+
+async function resetAllCompetitionData() {
+  const result = await callApi('resetCompetitionData');
+  clearCache();
+  return result;
+}
+
 async function uploadAvatar(tempFilePath) {
   if (!tempFilePath) {
     return '';
@@ -312,6 +332,8 @@ function callLocal(action, payload) {
       signups: [],
       waitlist: [],
       teams: null,
+      roundNumber: 0,
+      rotationQueue: [],
       votes: { mvp: {}, touch: {} },
       honors: { mvp: null, touch: null }
     };
@@ -338,6 +360,34 @@ function callLocal(action, payload) {
     }
     player.score = score;
     return clone(player);
+  }
+  if (action === 'adminSwapTeams') {
+    localRoom = {
+      ...localRoom,
+      teams: swapTeamPlayers(localRoom.teams, payload.radiantPlayerId, payload.direPlayerId)
+    };
+    return clone(localRoom);
+  }
+  if (action === 'adminAdvanceRound') {
+    const roundNumber = Number(localRoom.roundNumber || 1) + 1;
+    localRoom = {
+      ...localRoom,
+      teams: clone(payload.teams),
+      rotationQueue: clone(payload.rotationQueue || []),
+      roundNumber,
+      status: `\u7b2c ${roundNumber} \u628a\u5df2\u5206\u961f`
+    };
+    return clone(localRoom);
+  }
+  if (action === 'resetCompetitionData') {
+    localPlayers = localPlayers.map(resetCompetitionStats);
+    localMatches = [];
+    localRoom = {
+      ...localRoom,
+      votes: { mvp: {}, touch: {} },
+      honors: { mvp: null, touch: null }
+    };
+    return { reset: true };
   }
   if (action === 'recordMatchResult' || action === 'recordRadiantWin') {
     const winnerSide = action === 'recordRadiantWin' ? 'radiant' : payload.winnerSide;
@@ -381,6 +431,9 @@ module.exports = {
   saveTodayRoom,
   updateTodayRoomStartTime,
   adminUpdatePlayerScore,
+  adminSwapTeamPlayers,
+  adminSaveNextRound,
+  resetAllCompetitionData,
   recordMatchResult,
   recordRadiantWin,
   voteTodayHonor,
