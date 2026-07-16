@@ -84,3 +84,18 @@ test('applyImportedMatchResult gives winners two points and losers minus one', (
   assert.equal(importedMatchToRecord(preview).scoreGap, 7);
   assert.equal(importedMatchToRecord(preview).scoringVersion, 3);
 });
+
+test('importedMatchToRecord stores reconciled participant and winner ids', () => {
+  const record = importedMatchToRecord({
+    matchId: '7003',
+    radiantWin: false,
+    radiantKills: 5,
+    direKills: 10,
+    radiant: Array.from({ length: 5 }, (_, index) => ({ playerId: `r${index + 1}`, name: `R${index + 1}` })),
+    dire: Array.from({ length: 5 }, (_, index) => ({ playerId: `d${index + 1}`, name: `D${index + 1}` }))
+  });
+
+  assert.deepEqual(record.participantIds, ['r1', 'r2', 'r3', 'r4', 'r5', 'd1', 'd2', 'd3', 'd4', 'd5']);
+  assert.deepEqual(record.winnerIds, ['d1', 'd2', 'd3', 'd4', 'd5']);
+  assert.equal(record.lineupSource, 'import-reconciled');
+});

@@ -28,10 +28,20 @@ function snapshotTeam(team) {
   });
 }
 
-function buildManualMatchUpdate(room, winnerSide) {
+function buildManualMatchUpdate(room, winnerSide, actualLineup) {
   const side = normalizeWinnerSide(winnerSide);
   assertTeams(room);
 
+  if (actualLineup) {
+    return {
+      participantIds: actualLineup.participantIds,
+      winnerIds: side === 'radiant' ? actualLineup.radiantPlayerIds : actualLineup.direPlayerIds,
+      mvpId: '',
+      pressureId: '',
+      winnerName: side === 'radiant' ? '\u5929\u8f89' : '\u591c\u9b47',
+      mvpName: '\u5f85\u6295\u7968'
+    };
+  }
   const winnerTeam = room.teams[side];
 
   return {
@@ -44,9 +54,9 @@ function buildManualMatchUpdate(room, winnerSide) {
   };
 }
 
-function buildManualMatchRecord(room, winnerSide, timestamp) {
+function buildManualMatchRecord(room, winnerSide, timestamp, actualLineup) {
   const time = timestamp || Date.now();
-  const update = buildManualMatchUpdate(room, winnerSide);
+  const update = buildManualMatchUpdate(room, winnerSide, actualLineup);
   return {
     id: `m${time}`,
     title: `\u79d8\u9a6c\u65e5\u8d5b ${time}`,
@@ -57,10 +67,14 @@ function buildManualMatchRecord(room, winnerSide, timestamp) {
     winnerIds: update.winnerIds,
     mvpId: update.mvpId,
     pressureId: update.pressureId,
-    radiant: snapshotTeam(room.teams.radiant),
-    dire: snapshotTeam(room.teams.dire),
-    scoreGap: room.teams.scoreGap || 0,
-    scoringVersion: 3
+    radiant: actualLineup ? actualLineup.radiant : snapshotTeam(room.teams.radiant),
+    dire: actualLineup ? actualLineup.dire : snapshotTeam(room.teams.dire),
+    scoreGap: actualLineup ? actualLineup.scoreGap : room.teams.scoreGap || 0,
+    scoringVersion: 3,
+    ...(actualLineup ? {
+      lineupSource: 'manual-reconciled',
+      plannedParticipantIds: idsFromTeam(room.teams.radiant).concat(idsFromTeam(room.teams.dire))
+    } : {})
   };
 }
 

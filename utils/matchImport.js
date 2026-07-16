@@ -98,6 +98,12 @@ function buildMatchPreview(apiMatch, players) {
 }
 
 function importedMatchToRecord(preview) {
+  const participantIds = (preview.radiant || []).concat(preview.dire || [])
+    .map((player) => player.playerId)
+    .filter(Boolean);
+  const winnerIds = (preview.radiantWin ? preview.radiant : preview.dire)
+    .map((player) => player.playerId)
+    .filter(Boolean);
   return {
     id: `imported-${preview.matchId}`,
     matchId: preview.matchId,
@@ -109,7 +115,10 @@ function importedMatchToRecord(preview) {
     imported: true,
     radiantWin: Boolean(preview.radiantWin),
     radiant: preview.radiant,
-    dire: preview.dire
+    dire: preview.dire,
+    participantIds,
+    winnerIds,
+    lineupSource: 'import-reconciled'
   };
 }
 

@@ -8,6 +8,7 @@ const { normalizeMatchRecordId, removeMatchById } = require('./matchHistory');
 const { applyFinalHonorAwards } = require('./honorStats');
 const { rollbackMatchStats } = require('./matchRollback');
 const { buildManualMatchRecord } = require('./manualMatchResult');
+const { resolveActualLineup } = require('./actualLineup');
 const { swapTeamPlayers } = require('./teamEditor');
 const { resetCompetitionStats } = require('./competitionReset');
 
@@ -260,8 +261,8 @@ async function adminCreateTemporaryPlayer(form) {
   return player;
 }
 
-async function recordMatchResult(winnerSide) {
-  const match = await callApi('recordMatchResult', { winnerSide });
+async function recordMatchResult(winnerSide, radiantPlayerIds, direPlayerIds) {
+  const match = await callApi('recordMatchResult', { winnerSide, radiantPlayerIds, direPlayerIds });
   clearCache();
   return match;
 }
@@ -280,8 +281,8 @@ async function previewImportedMatch(matchId) {
   return callApi('previewImportedMatch', { matchId });
 }
 
-async function confirmImportedMatch(matchId) {
-  const match = await callApi('confirmImportedMatch', { matchId });
+async function confirmImportedMatch(matchId, radiantPlayerIds, direPlayerIds) {
+  const match = await callApi('confirmImportedMatch', { matchId, radiantPlayerIds, direPlayerIds });
   clearCache();
   return match;
 }
@@ -421,7 +422,12 @@ function callLocal(action, payload) {
   }
   if (action === 'recordMatchResult' || action === 'recordRadiantWin') {
     const winnerSide = action === 'recordRadiantWin' ? 'radiant' : payload.winnerSide;
-    const match = buildManualMatchRecord(localRoom, winnerSide, Date.now());
+    const hasActualLineup = Array.isArray(payload.radiantPlayerIds) && payload.radiantPlayerIds.length
+      && Array.isArray(payload.direPlayerIds) && payload.direPlayerIds.length;
+    const actualLineup = hasActualLineup
+      ? resolveActualLineup(localPlayers, payload.radiantPlayerIds, payload.direPlayerIds)
+      : null;
+    const match = buildManualMatchRecord(localRoom, winnerSide, Date.now(), actualLineup);
     match.title = '\u79d8\u9a6c\u65e5\u8d5b ' + (localMatches.length + 1);
     localMatches = [match].concat(localMatches);
     return match;

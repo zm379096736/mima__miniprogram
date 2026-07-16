@@ -63,3 +63,24 @@ test('buildManualMatchRecord stores rollback fields for selected winner side', (
     { playerId: 'd2', name: 'Dire Mid' }
   ]);
 });
+
+test('manual match helpers use submitted actual lineup instead of planned teams', () => {
+  const actualLineup = {
+    participantIds: ['a1', 'a2', 'a3', 'a4', 'a5', 'b1', 'b2', 'b3', 'b4', 'b5'],
+    radiantPlayerIds: ['a1', 'a2', 'a3', 'a4', 'a5'],
+    direPlayerIds: ['b1', 'b2', 'b3', 'b4', 'b5'],
+    radiant: [{ playerId: 'a1', name: 'Actual Radiant' }],
+    dire: [{ playerId: 'b1', name: 'Actual Dire' }],
+    scoreGap: 9
+  };
+
+  const update = buildManualMatchUpdate(room, 'dire', actualLineup);
+  const record = buildManualMatchRecord(room, 'dire', 456, actualLineup);
+
+  assert.deepEqual(update.participantIds, actualLineup.participantIds);
+  assert.deepEqual(update.winnerIds, actualLineup.direPlayerIds);
+  assert.deepEqual(record.radiant, actualLineup.radiant);
+  assert.deepEqual(record.dire, actualLineup.dire);
+  assert.equal(record.scoreGap, 9);
+  assert.equal(record.lineupSource, 'manual-reconciled');
+});
