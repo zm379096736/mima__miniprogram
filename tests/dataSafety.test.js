@@ -14,3 +14,13 @@ test('bootstrap never deletes matches or resets player statistics', () => {
   assert.doesNotMatch(bootstrapBlock, /collection\('matches'\).*remove/s);
   assert.doesNotMatch(bootstrapBlock, /resetPlayerStatsData/);
 });
+
+test('match import reads the Valve key from the cloud environment without embedding a key', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../cloudfunctions/api/index.js'), 'utf8');
+
+  assert.match(source, /require\('\.\/matchSources'\)/);
+  assert.match(source, /loadMatchWithFallback/);
+  assert.match(source, /process\.env\.STEAM_WEB_API_KEY/);
+  assert.match(source, /IDOTA2Match_570\/GetMatchDetails\/v1/);
+  assert.doesNotMatch(source, /[A-F0-9]{32}/);
+});

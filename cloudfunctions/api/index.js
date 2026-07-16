@@ -6,6 +6,7 @@ const { uniqueAvatarFileIds, applyAvatarTempUrls } = require('./avatarUrls');
 const { scoreAfterMatch, scoreAfterRollback } = require('./matchScoring');
 const { removeSignupFromRoom } = require('./adminSignup');
 const { swapTeamPlayers } = require('./teamEditor');
+const { loadMatchWithFallback } = require('./matchSources');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -220,6 +221,12 @@ function requestJson(url, method = 'GET') {
 
 async function fetchJson(url) {
   return requestJson(url, 'GET');
+}
+
+async function fetchValveMatch(matchId, apiKey) {
+  const url = 'https://api.steampowered.com/IDOTA2Match_570/GetMatchDetails/v1/'
+    + `?key=${encodeURIComponent(apiKey)}&match_id=${encodeURIComponent(matchId)}`;
+  return fetchJson(url);
 }
 
 async function requestOpenDotaParse(matchId) {
@@ -840,19 +847,14 @@ async function recordRadiantWin(openid) {
 
 async function previewImportedMatch(matchId) {
   const normalizedMatchId = normalizeMatchId(matchId);
-  let apiMatch = null;
-  try {
-    apiMatch = await fetchJson(`https://api.opendota.com/api/matches/${normalizedMatchId}`);
-  } catch (error) {
-    if (error.statusCode === 404) {
-      const requested = await requestOpenDotaParse(normalizedMatchId);
-      if (requested) {
-        throw new Error('\u8fd9\u573a\u6bd4\u8d5b\u8fd8\u6ca1\u6709\u88ab OpenDota \u6536\u5f55\uff0c\u5df2\u63d0\u4ea4\u89e3\u6790\u8bf7\u6c42\uff0c\u8bf7\u8fc7\u51e0\u5206\u949f\u518d\u8bd5');
-      }
-      throw new Error('\u8fd9\u573a\u6bd4\u8d5b\u5728 OpenDota \u67e5\u4e0d\u5230\uff0c\u8bf7\u786e\u8ba4\u6bd4\u8d5b ID \u6216\u7a0d\u540e\u518d\u8bd5');
-    }
-    throw error;
-  }
+  const sourceResult = await loadMatchWithFallback({
+    matchId: normalizedMatchId,
+    steamApiKey: String(process.env.STEAM_WEB_API_KEY || '').trim(),
+    fetchOpenDota: (id) => fetchJson(`https://api.opendota.com/api/matches/${id}`),
+    requestOpenDotaParse,
+    fetchValve: fetchValveMatch
+  });
+  const apiMatch = sourceResult.match;
   const players = (await db.collection('players').limit(100).get()).data;
   const preview = buildImportedMatchPreview(apiMatch, players);
   if (!preview.matchedCount) {
