@@ -840,7 +840,8 @@ async function saveProfile(openid, form) {
 async function recordMatchResult(openid, winnerSide, radiantPlayerIds, direPlayerIds) {
   assertAdmin(openid, '只有管理员可以记录比赛结果');
   const room = await getRoomDoc();
-  if (!room.teams) {
+  const submitted = Array.isArray(radiantPlayerIds) || Array.isArray(direPlayerIds);
+  if (!submitted && !room.teams) {
     throw new Error('\u8fd8\u6ca1\u6709\u5b8c\u6210\u5206\u961f');
   }
   const players = (await db.collection('players').limit(100).get()).data;
@@ -907,7 +908,8 @@ async function previewImportedMatch(matchId) {
   return buildImportedMatchPreview(apiMatch, players);
 }
 
-async function confirmImportedMatch(matchId, radiantPlayerIds, direPlayerIds) {
+async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlayerIds) {
+  assertAdmin(openid, '只有管理员可以导入比赛结果');
   const preview = await previewImportedMatch(matchId);
   const existed = await getById('matches', `imported-${preview.matchId}`);
   if (existed) {
@@ -1063,7 +1065,7 @@ exports.main = async (event) => {
     return previewImportedMatch(event.matchId);
   }
   if (action === 'confirmImportedMatch') {
-    return confirmImportedMatch(event.matchId, event.radiantPlayerIds, event.direPlayerIds);
+    return confirmImportedMatch(openid, event.matchId, event.radiantPlayerIds, event.direPlayerIds);
   }
   if (action === 'deleteMatchRecord') {
     return deleteMatchRecord(event.matchId);

@@ -1,14 +1,66 @@
 <view class="screen">
   <view class="hero">
-    <view class="eyebrow">ADMIN SCORE</view>
+    <view class="eyebrow">ACTUAL LINEUP</view>
     <view class="title">战绩录入</view>
-    <view class="subtitle">分队完成后，可以在这里记录胜方；系统会同步更新本场 10 位选手的比赛积分和战绩。</view>
+    <view class="subtitle">报名和自动分队只作为默认名单，比赛积分以本局实际参赛的 10 位选手为准。</view>
+  </view>
+
+  <view class="section panel">
+    <view class="section-title">
+      <text>实际参赛阵容</text>
+      <text class="badge">5 VS 5</text>
+    </view>
+    <view class="subtitle">管理员提交结果前，请核对天辉、夜魇各 5 人。临时替补也可以直接建立选手卡。</view>
+
+    <view wx:if="{{isAdmin}}" class="lineup-grid">
+      <view class="lineup-column radiant-column">
+        <view class="team-title blue-title">天辉</view>
+        <picker
+          wx:for="{{actualRadiantRows}}"
+          wx:key="rowKey"
+          range="{{playerOptions}}"
+          range-key="label"
+          value="{{item.pickerIndex}}"
+          data-side="radiant"
+          data-index="{{index}}"
+          bindchange="onActualPlayerChange"
+        >
+          <view class="lineup-picker">
+            <text class="lineup-slot">第 {{item.slot}} 位</text>
+            <text class="lineup-name">{{playerOptions[item.pickerIndex].label}}</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="lineup-column dire-column">
+        <view class="team-title red-title">夜魇</view>
+        <picker
+          wx:for="{{actualDireRows}}"
+          wx:key="rowKey"
+          range="{{playerOptions}}"
+          range-key="label"
+          value="{{item.pickerIndex}}"
+          data-side="dire"
+          data-index="{{index}}"
+          bindchange="onActualPlayerChange"
+        >
+          <view class="lineup-picker">
+            <text class="lineup-slot">第 {{item.slot}} 位</text>
+            <text class="lineup-name">{{playerOptions[item.pickerIndex].label}}</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <button wx:if="{{isAdmin}}" class="ghost-btn temporary-btn" bindtap="createManualTemporaryPlayer">
+      建立临时选手卡
+    </button>
+    <view wx:else class="member-notice">比赛结束后请通知管理员核对实际阵容并提交结果。</view>
   </view>
 
   <view class="section panel">
     <view class="section-title">本场结果</view>
-    <view wx:if="{{!teams}}" class="subtitle">还没有分队，先去“开 C”页面完成自动分队。</view>
-    <view wx:if="{{teams}}" class="result-actions">
+    <view class="result-actions">
       <button class="primary-btn" bindtap="recordRadiantWin">记录天辉胜利</button>
       <button class="danger-btn" bindtap="recordDireWin">记录夜魇胜利</button>
     </view>
@@ -16,7 +68,7 @@
 
   <view class="section panel">
     <view class="section-title">比赛 ID 导入</view>
-    <view class="subtitle">输入 Dota2 比赛 ID，自动拉取双方、胜方，确认后入库并更新已匹配选手比赛积分。</view>
+    <view class="subtitle">拉取比赛后，可逐人纠正实际参赛选手；未建卡的替补可以现场建立临时卡。</view>
     <input class="input" type="number" value="{{importMatchId}}" bindinput="onImportMatchIdInput" placeholder="输入比赛 ID" />
     <button class="primary-btn" bindtap="previewImportedMatch">拉取比赛</button>
 
@@ -27,28 +79,79 @@
       </view>
 
       <view class="team-preview">
-        <view class="team-title">天辉 {{importPreview.radiantKills}} 杀</view>
-        <view wx:for="{{importPreview.radiant}}" wx:key="accountId" class="player-row">
-          <view class="player-main">
-            <view class="player-name">{{item.name}}</view>
-            <view class="player-meta">KDA {{item.kills}} / {{item.deaths}} / {{item.assists}}</view>
+        <view class="team-title blue-title">天辉 {{importPreview.radiantKills}} 杀</view>
+        <view wx:for="{{importPreview.radiant}}" wx:key="rowKey" class="import-player-row">
+          <view class="import-player-head">
+            <view class="player-main">
+              <view class="player-name">{{item.name}}</view>
+              <view class="player-meta">KDA {{item.kills}} / {{item.deaths}} / {{item.assists}}</view>
+            </view>
+            <text class="{{item.matchBadgeClass}}">{{item.matchBadgeText}}</text>
           </view>
-          <text class="{{item.matchBadgeClass}}">{{item.matchBadgeText}}</text>
+          <picker
+            wx:if="{{isAdmin}}"
+            range="{{playerOptions}}"
+            range-key="label"
+            value="{{item.pickerIndex}}"
+            data-side="radiant"
+            data-index="{{index}}"
+            bindchange="onImportPlayerChange"
+          >
+            <view class="import-picker">关联选手：{{playerOptions[item.pickerIndex].label}}</view>
+          </picker>
+          <button
+            wx:if="{{isAdmin && !item.selectedPlayerId}}"
+            class="ghost-btn row-temp-btn"
+            data-side="radiant"
+            data-index="{{index}}"
+            data-accountid="{{item.accountId}}"
+            data-name="{{item.name}}"
+            bindtap="createImportedTemporaryPlayer"
+          >
+            为此人建立临时卡
+          </button>
         </view>
       </view>
 
       <view class="team-preview">
-        <view class="team-title">夜魇 {{importPreview.direKills}} 杀</view>
-        <view wx:for="{{importPreview.dire}}" wx:key="accountId" class="player-row">
-          <view class="player-main">
-            <view class="player-name">{{item.name}}</view>
-            <view class="player-meta">KDA {{item.kills}} / {{item.deaths}} / {{item.assists}}</view>
+        <view class="team-title red-title">夜魇 {{importPreview.direKills}} 杀</view>
+        <view wx:for="{{importPreview.dire}}" wx:key="rowKey" class="import-player-row">
+          <view class="import-player-head">
+            <view class="player-main">
+              <view class="player-name">{{item.name}}</view>
+              <view class="player-meta">KDA {{item.kills}} / {{item.deaths}} / {{item.assists}}</view>
+            </view>
+            <text class="{{item.matchBadgeClass}}">{{item.matchBadgeText}}</text>
           </view>
-          <text class="{{item.matchBadgeClass}}">{{item.matchBadgeText}}</text>
+          <picker
+            wx:if="{{isAdmin}}"
+            range="{{playerOptions}}"
+            range-key="label"
+            value="{{item.pickerIndex}}"
+            data-side="dire"
+            data-index="{{index}}"
+            bindchange="onImportPlayerChange"
+          >
+            <view class="import-picker">关联选手：{{playerOptions[item.pickerIndex].label}}</view>
+          </picker>
+          <button
+            wx:if="{{isAdmin && !item.selectedPlayerId}}"
+            class="ghost-btn row-temp-btn"
+            data-side="dire"
+            data-index="{{index}}"
+            data-accountid="{{item.accountId}}"
+            data-name="{{item.name}}"
+            bindtap="createImportedTemporaryPlayer"
+          >
+            为此人建立临时卡
+          </button>
         </view>
       </view>
 
-      <button class="primary-btn" bindtap="confirmImportedMatch">确认导入并更新比赛积分</button>
+      <button wx:if="{{isAdmin}}" class="primary-btn" bindtap="confirmImportedMatch">
+        确认实际阵容并导入
+      </button>
+      <view wx:else class="member-notice">请通知管理员确认导入结果。</view>
     </view>
   </view>
 
@@ -62,7 +165,15 @@
       </view>
       <view class="match-actions">
         <text class="badge">差 {{item.scoreGap}}</text>
-        <button class="danger-btn mini-btn" data-id="{{item.id}}" data-title="{{item.title}}" catchtap="deleteMatch">删除</button>
+        <button
+          wx:if="{{isAdmin}}"
+          class="danger-btn mini-btn"
+          data-id="{{item.id}}"
+          data-title="{{item.title}}"
+          catchtap="deleteMatch"
+        >
+          删除
+        </button>
       </view>
     </view>
   </view>

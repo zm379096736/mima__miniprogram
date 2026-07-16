@@ -12,15 +12,81 @@
   margin-top: 0;
 }
 
-.player-row.panel {
-  margin-bottom: 14rpx;
+.lineup-grid {
+  display: grid;
+  gap: 20rpx;
+  margin-top: 22rpx;
+}
+
+.lineup-column {
+  padding: 18rpx;
+  border-radius: 10rpx;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.radiant-column {
+  border: 2rpx solid rgba(65, 176, 255, 0.34);
+}
+
+.dire-column {
+  border: 2rpx solid rgba(230, 57, 70, 0.38);
+}
+
+.blue-title {
+  color: #69c2ff;
+}
+
+.red-title {
+  color: #ff7c87;
+}
+
+.lineup-picker,
+.import-picker {
+  display: flex;
+  align-items: center;
+  min-height: 70rpx;
+  margin-top: 12rpx;
+  padding: 14rpx 18rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.09);
+  border-radius: 8rpx;
+  color: #fffaf0;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 25rpx;
+}
+
+.lineup-slot {
+  flex-shrink: 0;
+  color: #9f9483;
+}
+
+.lineup-name {
+  overflow: hidden;
+  margin-left: 18rpx;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.temporary-btn {
+  margin-top: 18rpx;
+}
+
+.member-notice {
+  margin-top: 18rpx;
+  padding: 18rpx;
+  border-radius: 8rpx;
+  color: #c9bdab;
+  background: rgba(244, 196, 48, 0.08);
+  font-size: 24rpx;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .match-card {
-  align-items: center;
   display: flex;
-  gap: 18rpx;
+  align-items: center;
   justify-content: space-between;
+  gap: 18rpx;
   margin-bottom: 14rpx;
 }
 
@@ -30,8 +96,8 @@
 }
 
 .match-actions {
-  align-items: center;
   display: flex;
+  align-items: center;
   flex-shrink: 0;
   gap: 12rpx;
 }
@@ -44,19 +110,6 @@
   line-height: 52rpx;
 }
 
-.vote-block {
-  margin-top: 22rpx;
-}
-
-.vote-picker {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1rpx solid rgba(255, 255, 255, 0.14);
-  border-radius: 8rpx;
-  color: #f7efe0;
-  margin-top: 14rpx;
-  padding: 20rpx 22rpx;
-}
-
 .input {
   margin-top: 16rpx;
 }
@@ -66,12 +119,37 @@
 }
 
 .team-preview {
-  margin-top: 20rpx;
+  margin-top: 22rpx;
 }
 
 .team-title {
-  color: #f7efe0;
-  font-size: 28rpx;
-  font-weight: 700;
   margin-bottom: 12rpx;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.import-player-row {
+  padding: 18rpx 0;
+  border-top: 2rpx solid rgba(255, 255, 255, 0.07);
+}
+
+.import-player-row:first-of-type {
+  border-top: 0;
+}
+
+.import-player-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.import-picker {
+  width: 100%;
+}
+
+.row-temp-btn {
+  height: 60rpx;
+  margin-top: 10rpx;
+  font-size: 23rpx;
+  line-height: 60rpx;
 }
