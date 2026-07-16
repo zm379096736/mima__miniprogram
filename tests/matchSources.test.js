@@ -1,7 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { normalizeValveMatch } = require('../cloudfunctions/api/matchSources');
+const {
+  normalizeValveMatch,
+  loadMatchWithFallback
+} = require('../cloudfunctions/api/matchSources');
 
 function valveFixture() {
   return {
@@ -62,6 +65,114 @@ test('normalizeValveMatch rejects a different match id', () => {
   );
 });
 
-module.exports = {
-  valveFixture
-};
+test('loadMatchWithFallback does not call Valve when OpenDota succeeds', async () => {
+  let valveCalls = 0;
+  const openDotaMatch = {
+    match_id: 7001,
+    radiant_win: true,
+    players: Array.from({ length: 10 }, (_, index) => ({ account_id: index + 1 }))
+  };
+
+  const result = await loadMatchWithFallback({
+    matchId: '7001',
+    steamApiKey: 'test-key',
+    fetchOpenDota: async () => openDotaMatch,
+    requestOpenDotaParse: async () => false,
+    fetchValve: async () => {
+      valveCalls += 1;
+      return valveFixture();
+    }
+  });
+
+  assert.equal(result.source, 'opendota');
+  assert.equal(result.match, openDotaMatch);
+  assert.equal(result.parseRequested, false);
+  assert.equal(valveCalls, 0);
+});
+
+test('loadMatchWithFallback uses Valve after OpenDota failure', async () => {
+  const result = await loadMatchWithFallback({
+    matchId: '7001',
+    steamApiKey: 'test-key',
+    fetchOpenDota: async () => {
+      const error = new Error('missing');
+      error.statusCode = 404;
+      throw error;
+    },
+    requestOpenDotaParse: async () => true,
+    fetchValve: async () => valveFixture()
+  });
+
+  assert.equal(result.source, 'valve');
+  assert.equal(result.parseRequested, true);
+  assert.equal(result.match.match_id, 7001);
+});
+
+test('loadMatchWithFallback skips Valve when the server key is missing', async () => {
+  await assert.rejects(
+    loadMatchWithFallback({
+      matchId: '7001',
+      steamApiKey: '',
+      fetchOpenDota: async () => {
+        throw new Error('network unavailable');
+      },
+      requestOpenDotaParse: async () => true,
+      fetchValve: async () => assert.fail('Valve should not be called')
+    }),
+    (error) => {
+      assert.equal(error.code, 'MATCH_PENDING');
+      assert.match(error.message, /比赛数据正在同步/);
+      return true;
+    }
+  );
+});
+
+test('loadMatchWithFallback reports invalid Valve credentials without exposing the key', async () => {
+  const testKey = 'private-test-key';
+  await assert.rejects(
+    loadMatchWithFallback({
+      matchId: '7001',
+      steamApiKey: testKey,
+      fetchOpenDota: async () => {
+        throw new Error('network unavailable');
+      },
+      requestOpenDotaParse: async () => false,
+      fetchValve: async () => {
+        const error = new Error(`upstream rejected ${testKey}`);
+        error.statusCode = 403;
+        throw error;
+      }
+    }),
+    (error) => {
+      assert.equal(error.code, 'VALVE_AUTH_FAILED');
+      assert.match(error.message, /Valve API 密钥配置无效/);
+      assert.equal(error.message.includes(testKey), false);
+      return true;
+    }
+  );
+});
+
+test('loadMatchWithFallback reports when neither source has the match', async () => {
+  await assert.rejects(
+    loadMatchWithFallback({
+      matchId: '7001',
+      steamApiKey: 'test-key',
+      fetchOpenDota: async () => {
+        const error = new Error('missing');
+        error.statusCode = 404;
+        throw error;
+      },
+      requestOpenDotaParse: async () => false,
+      fetchValve: async () => {
+        const error = new Error('missing');
+        error.statusCode = 404;
+        throw error;
+      }
+    }),
+    (error) => {
+      assert.equal(error.code, 'MATCH_NOT_FOUND');
+      assert.match(error.message, /OpenDota 和 Valve 都未找到/);
+      return true;
+    }
+  );
+});

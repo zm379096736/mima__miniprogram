@@ -38,6 +38,72 @@ function normalizeValveMatch(payload, expectedMatchId) {
   };
 }
 
+function createSourceError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+async function tryRequestOpenDotaParse(requestOpenDotaParse, matchId) {
+  try {
+    return Boolean(await requestOpenDotaParse(matchId));
+  } catch (error) {
+    return false;
+  }
+}
+
+async function loadMatchWithFallback(options) {
+  const {
+    matchId,
+    steamApiKey,
+    fetchOpenDota,
+    requestOpenDotaParse,
+    fetchValve
+  } = options;
+
+  try {
+    return {
+      match: await fetchOpenDota(matchId),
+      source: 'opendota',
+      parseRequested: false
+    };
+  } catch (openDotaError) {
+    const parseRequested = await tryRequestOpenDotaParse(requestOpenDotaParse, matchId);
+    const key = String(steamApiKey || '').trim();
+    if (!key) {
+      throw createSourceError(
+        parseRequested ? 'MATCH_PENDING' : 'MATCH_NOT_FOUND',
+        parseRequested
+          ? '\u6bd4\u8d5b\u6570\u636e\u6b63\u5728\u540c\u6b65\uff0c\u8bf7\u8fc7\u51e0\u5206\u949f\u518d\u8bd5\uff0c\u6216\u7531\u7ba1\u7406\u5458\u624b\u52a8\u5f55\u5165'
+          : '\u6682\u65f6\u65e0\u6cd5\u83b7\u53d6\u8fd9\u573a\u6bd4\u8d5b\uff0c\u8bf7\u786e\u8ba4\u6bd4\u8d5b ID\uff0c\u6216\u7531\u7ba1\u7406\u5458\u624b\u52a8\u5f55\u5165'
+      );
+    }
+
+    try {
+      const valvePayload = await fetchValve(matchId, key);
+      return {
+        match: normalizeValveMatch(valvePayload, matchId),
+        source: 'valve',
+        parseRequested
+      };
+    } catch (valveError) {
+      if (valveError && (valveError.statusCode === 401 || valveError.statusCode === 403)) {
+        throw createSourceError(
+          'VALVE_AUTH_FAILED',
+          '\u0056\u0061\u006c\u0076\u0065\u0020\u0041\u0050\u0049\u0020\u5bc6\u94a5\u914d\u7f6e\u65e0\u6548\uff0c\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u68c0\u67e5\u4e91\u51fd\u6570\u73af\u5883\u53d8\u91cf'
+        );
+      }
+      throw createSourceError(
+        parseRequested ? 'MATCH_PENDING' : 'MATCH_NOT_FOUND',
+        parseRequested
+          ? '\u6bd4\u8d5b\u6570\u636e\u6b63\u5728\u540c\u6b65\uff0c\u8bf7\u8fc7\u51e0\u5206\u949f\u518d\u8bd5\uff0c\u6216\u7531\u7ba1\u7406\u5458\u624b\u52a8\u5f55\u5165'
+          : '\u004f\u0070\u0065\u006e\u0044\u006f\u0074\u0061\u0020\u548c\u0020\u0056\u0061\u006c\u0076\u0065\u0020\u90fd\u672a\u627e\u5230\u8fd9\u573a\u6bd4\u8d5b\uff0c\u8bf7\u786e\u8ba4\u6bd4\u8d5b ID\uff0c\u6216\u7531\u7ba1\u7406\u5458\u624b\u52a8\u5f55\u5165'
+      );
+    }
+  }
+}
+
 module.exports = {
-  normalizeValveMatch
+  normalizeValveMatch,
+  loadMatchWithFallback
 };
