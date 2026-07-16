@@ -254,6 +254,12 @@ async function uploadAvatarWithSrc(tempFilePath) {
   };
 }
 
+async function adminCreateTemporaryPlayer(form) {
+  const player = await callApi('adminCreateTemporaryPlayer', { form });
+  clearCache();
+  return player;
+}
+
 async function recordMatchResult(winnerSide) {
   const match = await callApi('recordMatchResult', { winnerSide });
   clearCache();
@@ -389,6 +395,30 @@ function callLocal(action, payload) {
     };
     return { reset: true };
   }
+  if (action === 'adminCreateTemporaryPlayer') {
+    const steamIds = normalizeSteamIds((payload.form && payload.form.steamId) || '');
+    const player = {
+      id: `temp-${Date.now()}`,
+      openid: '',
+      name: String(payload.form && payload.form.name || '\u4e34\u65f6\u9009\u624b').trim(),
+      score: 80,
+      points: 0,
+      matches: 0,
+      wins: 0,
+      mvp: 0,
+      touch: 0,
+      pigeon: 0,
+      pressure: 0,
+      preferredPositions: [1, 2, 3, 4, 5],
+      steamId: steamIds.join(', '),
+      steamIds,
+      avatarUrl: '',
+      profileCompleted: true,
+      temporary: true
+    };
+    localPlayers.push(player);
+    return clone(player);
+  }
   if (action === 'recordMatchResult' || action === 'recordRadiantWin') {
     const winnerSide = action === 'recordRadiantWin' ? 'radiant' : payload.winnerSide;
     const match = buildManualMatchRecord(localRoom, winnerSide, Date.now());
@@ -434,6 +464,7 @@ module.exports = {
   adminSwapTeamPlayers,
   adminSaveNextRound,
   resetAllCompetitionData,
+  adminCreateTemporaryPlayer,
   recordMatchResult,
   recordRadiantWin,
   voteTodayHonor,

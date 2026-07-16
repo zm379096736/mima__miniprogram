@@ -7,6 +7,11 @@ const { removeSignupFromRoom } = require('./adminSignup');
 const { swapTeamPlayers } = require('./teamEditor');
 const { loadMatchWithFallback } = require('./matchSources');
 const { requestJson } = require('./httpJson');
+const {
+  buildTemporaryPlayer,
+  findClaimableTemporaryPlayer,
+  assertSteamIdsAvailable
+} = require('./temporaryPlayer');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -330,7 +335,8 @@ async function getById(collection, id) {
 }
 
 async function ensureCurrentPlayer(openid) {
-  const existed = await getById('players', openid);
+  const byOpenid = await db.collection('players').where({ openid }).limit(1).get();
+  const existed = byOpenid.data[0] || await getById('players', openid);
   if (existed) {
     return existed;
   }
@@ -439,7 +445,7 @@ async function bootstrap(openid) {
     ...player,
     points: Number(player.points || 0)
   })));
-  const playerWithAvatar = players.find((player) => player.id === openid) || currentPlayer;
+  const playerWithAvatar = players.find((player) => player.openid === openid) || currentPlayer;
   room = withTeamAvatarSrc(room, players);
   const matches = (await db.collection('matches').orderBy('createdAt', 'desc').limit(50).get()).data;
   return {
@@ -749,6 +755,32 @@ async function markPigeons(openid, pigeonIds) {
   return { pigeonIds: Array.from(selected) };
 }
 
+async function adminCreateTemporaryPlayer(openid, form) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u521b\u5efa\u4e34\u65f6\u9009\u624b\u5361');
+  const name = String(form && form.name || '').trim();
+  if (!name) {
+    throw new Error('\u8bf7\u8f93\u5165\u4e34\u65f6\u9009\u624b\u540d\u79f0');
+  }
+  const steamIds = normalizeSteamIds(form && (form.steamIds || form.steamId) || '');
+  const players = (await db.collection('players').limit(100).get()).data;
+  assertSteamIdsAvailable(players, steamIds, '');
+  const existed = findClaimableTemporaryPlayer(players, steamIds);
+  if (existed) {
+    return existed;
+  }
+  const player = {
+    ...buildTemporaryPlayer({
+      id: `temp-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      name,
+      steamIds
+    }),
+    createdAt: db.serverDate(),
+    updatedAt: db.serverDate()
+  };
+  const result = await db.collection('players').add({ data: player });
+  return { ...player, _id: result._id };
+}
+
 async function saveProfile(openid, form) {
   const score = normalizeScore(form.score);
   const preferredPositions = normalizePositions(form.preferredPositions);
@@ -764,6 +796,32 @@ async function saveProfile(openid, form) {
     profileCompleted: true,
     updatedAt: db.serverDate()
   };
+  const players = (await db.collection('players').limit(100).get()).data;
+  assertSteamIdsAvailable(players, steamIds, current.id);
+  const claimable = findClaimableTemporaryPlayer(players, steamIds);
+  if (claimable && claimable.id !== current.id) {
+    const currentHasStats = [
+      current.points,
+      current.matches,
+      current.wins,
+      current.mvp,
+      current.touch,
+      current.pigeon,
+      current.pressure
+    ].some((value) => Number(value || 0) !== 0);
+    if (current.profileCompleted || currentHasStats) {
+      throw new Error('\u5f53\u524d\u9009\u624b\u5361\u5df2\u6709\u6570\u636e\uff0c\u65e0\u6cd5\u81ea\u52a8\u8ba4\u9886\u4e34\u65f6\u5361');
+    }
+    await db.collection('players').doc(claimable._id).update({
+      data: {
+        ...data,
+        openid,
+        temporary: false
+      }
+    });
+    await db.collection('players').doc(current._id).remove();
+    return { ...claimable, ...data, openid, temporary: false };
+  }
   await db.collection('players').doc(current._id).update({ data });
   return { ...current, ...data };
 }
@@ -929,6 +987,9 @@ exports.main = async (event) => {
   }
   if (action === 'saveProfile') {
     return saveProfile(openid, event.form || {});
+  }
+  if (action === 'adminCreateTemporaryPlayer') {
+    return adminCreateTemporaryPlayer(openid, event.form || {});
   }
   if (action === 'joinRoom') {
     return joinRoom(openid);
