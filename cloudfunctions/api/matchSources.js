@@ -68,9 +68,10 @@ async function loadMatchWithFallback(options) {
       parseRequested: false
     };
   } catch (openDotaError) {
-    const parseRequested = await tryRequestOpenDotaParse(requestOpenDotaParse, matchId);
+    const parsePromise = tryRequestOpenDotaParse(requestOpenDotaParse, matchId);
     const key = String(steamApiKey || '').trim();
     if (!key) {
+      const parseRequested = await parsePromise;
       throw createSourceError(
         parseRequested ? 'MATCH_PENDING' : 'MATCH_NOT_FOUND',
         parseRequested
@@ -80,13 +81,17 @@ async function loadMatchWithFallback(options) {
     }
 
     try {
-      const valvePayload = await fetchValve(matchId, key);
+      const [parseRequested, valvePayload] = await Promise.all([
+        parsePromise,
+        fetchValve(matchId, key)
+      ]);
       return {
         match: normalizeValveMatch(valvePayload, matchId),
         source: 'valve',
         parseRequested
       };
     } catch (valveError) {
+      const parseRequested = await parsePromise;
       if (valveError && (valveError.statusCode === 401 || valveError.statusCode === 403)) {
         throw createSourceError(
           'VALVE_AUTH_FAILED',

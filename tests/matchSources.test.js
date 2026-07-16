@@ -108,6 +108,34 @@ test('loadMatchWithFallback uses Valve after OpenDota failure', async () => {
   assert.equal(result.match.match_id, 7001);
 });
 
+test('loadMatchWithFallback starts parsing and Valve fallback in parallel', async () => {
+  let finishParse;
+  let valveStarted = false;
+  const resultPromise = loadMatchWithFallback({
+    matchId: '7001',
+    steamApiKey: 'test-key',
+    fetchOpenDota: async () => {
+      throw new Error('network unavailable');
+    },
+    requestOpenDotaParse: async () => new Promise((resolve) => {
+      finishParse = resolve;
+    }),
+    fetchValve: async () => {
+      valveStarted = true;
+      return valveFixture();
+    }
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  const startedBeforeParseFinished = valveStarted;
+  finishParse(true);
+  const result = await resultPromise;
+
+  assert.equal(startedBeforeParseFinished, true);
+  assert.equal(result.source, 'valve');
+  assert.equal(result.parseRequested, true);
+});
+
 test('loadMatchWithFallback skips Valve when the server key is missing', async () => {
   await assert.rejects(
     loadMatchWithFallback({

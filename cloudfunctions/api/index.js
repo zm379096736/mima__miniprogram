@@ -1,5 +1,4 @@
 const cloud = require('wx-server-sdk');
-const https = require('https');
 const { isAdminOpenid, assertAdmin } = require('./adminAuth');
 const { needsPigeonReset } = require('./pigeonReset');
 const { uniqueAvatarFileIds, applyAvatarTempUrls } = require('./avatarUrls');
@@ -7,6 +6,7 @@ const { scoreAfterMatch, scoreAfterRollback } = require('./matchScoring');
 const { removeSignupFromRoom } = require('./adminSignup');
 const { swapTeamPlayers } = require('./teamEditor');
 const { loadMatchWithFallback } = require('./matchSources');
+const { requestJson } = require('./httpJson');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -188,35 +188,6 @@ function importedMatchToRecord(preview) {
     dire: preview.dire,
     createdAt: db.serverDate()
   };
-}
-
-function requestJson(url, method = 'GET') {
-  return new Promise((resolve, reject) => {
-    const request = https.request(url, { method }, (response) => {
-      let body = '';
-      response.on('data', (chunk) => {
-        body += chunk;
-      });
-      response.on('end', () => {
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          const error = new Error(`\u7b2c\u4e09\u65b9 API \u8bf7\u6c42\u5931\u8d25 ${response.statusCode}`);
-          error.statusCode = response.statusCode;
-          error.body = body;
-          reject(error);
-          return;
-        }
-        try {
-          resolve(JSON.parse(body));
-        } catch (error) {
-          reject(new Error('\u7b2c\u4e09\u65b9 API \u8fd4\u56de\u89e3\u6790\u5931\u8d25'));
-        }
-      });
-    });
-    request.on('error', () => {
-      reject(new Error('\u7b2c\u4e09\u65b9 API \u8bf7\u6c42\u5931\u8d25'));
-    });
-    request.end();
-  });
 }
 
 async function fetchJson(url) {
