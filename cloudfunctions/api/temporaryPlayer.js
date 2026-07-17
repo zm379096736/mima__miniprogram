@@ -62,6 +62,8 @@ function assertSteamIdsAvailable(players, steamIds, currentPlayerId) {
 }
 
 module.exports = {
+  normalizeSteamIds,
+  steamIdsForPlayer,
   buildTemporaryPlayer,
   findClaimableTemporaryPlayer,
   assertSteamIdsAvailable
