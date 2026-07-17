@@ -58,6 +58,16 @@
   margin-top: 14rpx;
 }
 
+.admin-steam-editor {
+  border-top: 1rpx solid rgba(255, 255, 255, 0.1);
+  margin-top: 24rpx;
+  padding-top: 22rpx;
+}
+
+.admin-steam-editor .input {
+  margin-top: 14rpx;
+}
+
 .remove-player-btn {
   flex-shrink: 0;
   min-width: 82rpx;

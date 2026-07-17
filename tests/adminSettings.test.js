@@ -25,6 +25,11 @@ test('administrator panel can select any player and save self rating', () => {
   assert.match(view, /bindchange="onAdminPlayerChange"/);
   assert.match(view, /bindtap="saveAdminPlayerScore"/);
   assert.match(page, /adminUpdatePlayerScore/);
+  assert.match(view, /class="admin-steam-editor"/);
+  assert.match(view, /bindinput="onAdminSteamIdsInput"/);
+  assert.match(view, /bindtap="saveAdminPlayerSteamIds"/);
+  assert.match(page, /adminUpdatePlayerSteamIds/);
+  assert.match(page, /buildTemporaryMergeMessage/);
 });
 
 test('cloud protects start time and player score updates with administrator checks', () => {

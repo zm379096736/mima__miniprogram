@@ -241,6 +241,16 @@ async function adminUpdatePlayerScore(playerId, score) {
   return player;
 }
 
+async function adminUpdatePlayerSteamIds(playerId, steamIds, mergeApprovals = []) {
+  const result = await callApi('adminUpdatePlayerSteamIds', {
+    playerId,
+    steamIds,
+    mergeApprovals
+  });
+  if (result && result.status === 'updated') clearCache();
+  return result;
+}
+
 async function adminSwapTeamPlayers(radiantPlayerId, direPlayerId) {
   const room = await callApi('adminSwapTeams', { radiantPlayerId, direPlayerId });
   clearCache();
@@ -554,6 +564,7 @@ module.exports = {
   saveTodayRoom,
   updateTodayRoomStartTime,
   adminUpdatePlayerScore,
+  adminUpdatePlayerSteamIds,
   adminSwapTeamPlayers,
   adminSaveNextRound,
   resetAllCompetitionData,

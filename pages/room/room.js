@@ -5,6 +5,7 @@ const {
   resetTodayRoomSignups,
   adminRemoveTodaySignup,
   adminUpdatePlayerScore,
+  adminUpdatePlayerSteamIds,
   adminSwapTeamPlayers,
   adminSaveNextRound,
   resetAllCompetitionData,
@@ -19,6 +20,10 @@ const { normalizeScore } = require('../../utils/playerProfile');
 const { isAdminOpenid } = require('../../utils/adminRoom');
 const { selectNextRound } = require('../../utils/roundRotation');
 const { adminOpenids } = require('../../utils/config');
+const {
+  buildTemporaryMergeMessage,
+  approvalsFromMerges
+} = require('../../utils/temporaryMergePrompt');
 
 function withPositionText(player) {
   return {
@@ -71,6 +76,7 @@ Page({
     adminPlayerIndex: 0,
     adminPlayerId: '',
     adminScore: '',
+    adminSteamIds: '',
     pigeonCandidates: [],
     selectedPigeonIds: [],
     selectedRadiantPlayerId: '',
@@ -137,6 +143,9 @@ Page({
         adminPlayerIndex: selectedAdminIndex,
         adminPlayerId: selectedAdminPlayer ? selectedAdminPlayer.id : '',
         adminScore: selectedAdminPlayer ? String(selectedAdminPlayer.score) : '',
+        adminSteamIds: selectedAdminPlayer
+          ? ((selectedAdminPlayer.steamIds || []).join(', ') || selectedAdminPlayer.steamId || '')
+          : '',
         pigeonCandidates: signups.concat(waitlist),
         selectedPigeonIds: [],
         selectedRadiantPlayerId: '',
@@ -246,7 +255,8 @@ Page({
     this.setData({
       adminPlayerIndex: index,
       adminPlayerId: player.id,
-      adminScore: String(player.score)
+      adminScore: String(player.score),
+      adminSteamIds: (player.steamIds || []).join(', ') || player.steamId || ''
     });
   },
 
@@ -266,6 +276,45 @@ Page({
       wx.showToast({ title: '选手自评分已更新', icon: 'success' });
     } catch (error) {
       wx.showToast({ title: error.message, icon: 'none' });
+    }
+  },
+
+  onAdminSteamIdsInput(event) {
+    this.setData({ adminSteamIds: event.detail.value });
+  },
+
+  async requestAdminSteamMerge(merges) {
+    return new Promise((resolve) => {
+      wx.showModal({
+        title: '合并临时选手',
+        content: buildTemporaryMergeMessage(merges),
+        confirmText: '确认合并',
+        success: (result) => resolve(result.confirm ? approvalsFromMerges(merges) : null),
+        fail: () => resolve(null)
+      });
+    });
+  },
+
+  async saveAdminPlayerSteamIds(mergeApprovals = []) {
+    if (!this.data.isAdmin) {
+      wx.showToast({ title: '只有管理员可以修改选手 Steam ID', icon: 'none' });
+      return;
+    }
+    try {
+      const result = await adminUpdatePlayerSteamIds(
+        this.data.adminPlayerId,
+        this.data.adminSteamIds,
+        Array.isArray(mergeApprovals) ? mergeApprovals : []
+      );
+      if (result && result.status === 'merge_required') {
+        const approvals = await this.requestAdminSteamMerge(result.merges);
+        if (approvals) await this.saveAdminPlayerSteamIds(approvals);
+        return;
+      }
+      await this.loadRoom();
+      wx.showToast({ title: 'Steam ID 已更新', icon: 'success' });
+    } catch (error) {
+      wx.showModal({ title: '保存失败', content: error.message, showCancel: false });
     }
   },
 

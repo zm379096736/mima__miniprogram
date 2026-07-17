@@ -536,6 +536,13 @@ async function updatePlayerScore(openid, playerId, score) {
   return { ...player, score: nextScore };
 }
 
+async function adminUpdatePlayerSteamIds(openid, playerId, steamIds, mergeApprovals = []) {
+  assertAdmin(openid, '只有管理员可以修改选手 Steam ID');
+  const targetId = String(playerId || '').trim();
+  if (!targetId) throw new Error('请选择选手');
+  return playerIdentityService.updatePlayerSteamIds(targetId, steamIds, mergeApprovals);
+}
+
 async function adminSwapTeams(openid, radiantPlayerId, direPlayerId) {
   assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u8c03\u6574\u961f\u4f0d');
   const room = await getRoomDoc();
@@ -1110,6 +1117,14 @@ exports.main = async (event) => {
   }
   if (action === 'updatePlayerScore') {
     return updatePlayerScore(openid, event.playerId, event.score);
+  }
+  if (action === 'adminUpdatePlayerSteamIds') {
+    return adminUpdatePlayerSteamIds(
+      openid,
+      event.playerId,
+      event.steamIds || [],
+      event.mergeApprovals || []
+    );
   }
   if (action === 'adminSwapTeams') {
     return adminSwapTeams(openid, event.radiantPlayerId, event.direPlayerId);

@@ -46,6 +46,11 @@
       </picker>
       <input class="input" type="number" value="{{adminScore}}" bindinput="onAdminScoreInput" placeholder="输入 0-150" />
       <button class="primary-btn" bindtap="saveAdminPlayerScore" disabled="{{!adminPlayerId}}">保存选手自评分</button>
+      <view class="admin-steam-editor">
+        <view class="section-title">选手 Steam ID 管理</view>
+        <input class="input" value="{{adminSteamIds}}" bindinput="onAdminSteamIdsInput" placeholder="多个 ID 用逗号或空格分隔" />
+        <button class="primary-btn" bindtap="saveAdminPlayerSteamIds" disabled="{{!adminPlayerId}}">保存 Steam ID</button>
+      </view>
     </view>
   </view>
 
