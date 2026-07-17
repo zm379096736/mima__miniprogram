@@ -454,7 +454,7 @@ test('processing ignores pre-start matches and retries missing start times', asy
   assert.equal(db.state.leagueSyncQueue['700001'].status, 'ignored_before_start');
   assert.equal(db.state.leagueSyncQueue['700002'].status, 'waiting_data');
   assert.equal(db.state.leagueSyncQueue['700003'].status, 'imported');
-  assert.equal(state.pendingCount, 1);
+  assert.equal(state.pendingCount, 0);
 });
 
 test('concurrent first runs initialize and acquire the state lock atomically', async () => {
@@ -936,24 +936,48 @@ test('bootstrap state is client-safe and includes a bounded queue only for admin
     },
     leagueSyncQueue: {}
   });
-  for (let index = 0; index < 25; index += 1) {
+  const hiddenStatuses = [
+    'waiting_data',
+    'ignored_before_start',
+    'failed',
+    'processing',
+    'discovered',
+    'imported'
+  ];
+  for (let index = 0; index < 23; index += 1) {
     const matchId = String(800000 + index);
     db.state.leagueSyncQueue[matchId] = {
       _id: matchId,
       matchId,
-      status: index === 0 ? 'imported' : 'failed',
+      status: 'needs_review',
+      preview: readyPreview(matchId),
       error: `raw https://upstream.invalid/queue?token=${TOKEN}`,
       updatedAt: new Date(Date.UTC(2026, 6, 17, 2, index))
     };
   }
+  hiddenStatuses.forEach((status, index) => {
+    const matchId = String(900000 + index);
+    db.state.leagueSyncQueue[matchId] = {
+      _id: matchId,
+      matchId,
+      status,
+      updatedAt: new Date(Date.UTC(2026, 6, 18, 2, index))
+    };
+  });
   const api = createApi(db);
 
   const playerState = await api.getClientLeagueSyncState('player');
   const adminState = await api.getClientLeagueSyncState('admin');
 
-  assert.equal(playerState.pendingCount, 24);
+  assert.equal(playerState.pendingCount, 23);
   assert.equal('queuePreview' in playerState, false);
+  assert.equal(adminState.pendingCount, 23);
   assert.equal(adminState.queuePreview.length, 20);
+  assert.equal(adminState.queuePreview.every((row) => row.status === 'needs_review'), true);
+  assert.deepEqual(
+    adminState.queuePreview.map((row) => row.matchId),
+    Array.from({ length: 20 }, (_, index) => String(800022 - index))
+  );
   assert.equal('lockOwner' in adminState, false);
   assert.equal('lockExpiresAt' in adminState, false);
   assert.equal(JSON.stringify(adminState).includes('private-owner'), false);

@@ -574,21 +574,29 @@ function createLeagueSyncApi(dependencies) {
     return safeQueueRow(await readDocument(queueReference(matchId)));
   }
 
-  async function pendingCount() {
-    let total = 0;
-    for (const status of PENDING_STATUSES) {
-      const result = await db.collection('leagueSyncQueue').where({ status }).count();
-      total += Number(result.total || 0);
-    }
-    return total;
+  async function reviewCount() {
+    const result = await db.collection('leagueSyncQueue')
+      .where({ status: 'needs_review' })
+      .count();
+    return Number(result.total || 0);
+  }
+
+  async function reviewQueuePreview() {
+    const result = await db.collection('leagueSyncQueue')
+      .where({ status: 'needs_review' })
+      .limit(100)
+      .get();
+    return (result.data || [])
+      .sort((left, right) => dateValue(right.updatedAt) - dateValue(left.updatedAt))
+      .slice(0, 20)
+      .map(safeQueueRow);
   }
 
   async function getClientLeagueSyncState(openid) {
     const state = safeState(await ensureLeagueSyncState());
-    state.pendingCount = await pendingCount();
+    state.pendingCount = await reviewCount();
     if (isAdminOpenid(openid)) {
-      const result = await db.collection('leagueSyncQueue').orderBy('updatedAt', 'desc').limit(20).get();
-      state.queuePreview = (result.data || []).map(safeQueueRow);
+      state.queuePreview = await reviewQueuePreview();
     }
     return state;
   }
