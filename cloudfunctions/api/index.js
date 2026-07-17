@@ -8,6 +8,8 @@ const { swapTeamPlayers } = require('./teamEditor');
 const { loadMatchWithFallback } = require('./matchSources');
 const { requestJson } = require('./httpJson');
 const { settleImportedMatch } = require('./matchSettlement');
+const { normalizeLeagueMatchIds } = require('./leagueSyncCore');
+const { createLeagueSyncApi } = require('./leagueSyncApi');
 const {
   buildTemporaryPlayer,
   findClaimableTemporaryPlayer,
@@ -64,6 +66,8 @@ async function ensureCollections() {
   await ensureCollection('players');
   await ensureCollection('rooms');
   await ensureCollection('matches');
+  await ensureCollection('system');
+  await ensureCollection('leagueSyncQueue');
 }
 
 function normalizeScore(score) {
@@ -446,13 +450,15 @@ async function bootstrap(openid) {
   const playerWithAvatar = players.find((player) => player.openid === openid) || currentPlayer;
   room = withTeamAvatarSrc(room, players);
   const matches = (await db.collection('matches').orderBy('createdAt', 'desc').limit(50).get()).data;
+  const leagueSync = await leagueSyncApi.getClientLeagueSyncState(openid);
   return {
     openid,
     currentPlayer: { ...playerWithAvatar, isAdmin: isAdminOpenid(openid) },
     players,
     room,
     matches,
-    isAdmin: isAdminOpenid(openid)
+    isAdmin: isAdminOpenid(openid),
+    leagueSync
   };
 }
 
@@ -897,6 +903,16 @@ async function previewImportedMatch(matchId) {
   return buildImportedMatchPreview(apiMatch, players);
 }
 
+const leagueSyncApi = createLeagueSyncApi({
+  db,
+  isAdminOpenid,
+  normalizeLeagueMatchIds,
+  loadPreview: previewImportedMatch,
+  settleImportedMatch: (preview, metadata) => settleImportedMatch(preview, metadata, { db }),
+  applyActualLineupToPreview,
+  getPlayers: async () => (await db.collection('players').limit(100).get()).data
+});
+
 async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlayerIds) {
   assertAdmin(openid, '只有管理员可以导入比赛结果');
   const preview = await previewImportedMatch(matchId);
@@ -979,6 +995,32 @@ exports.main = async (event) => {
 
   if (action === 'bootstrap') {
     return bootstrap(openid);
+  }
+  if (action === 'assertLeagueSyncAdmin') {
+    return leagueSyncApi.assertLeagueSyncAdmin(event.token, event.operatorOpenid);
+  }
+  if (action === 'getLeagueSyncStateInternal') {
+    return leagueSyncApi.getLeagueSyncStateInternal(event.token);
+  }
+  if (action === 'discoverLeagueMatches') {
+    return leagueSyncApi.discoverLeagueMatches(event.token, event.payload || event.matches || []);
+  }
+  if (action === 'processLeagueQueue') {
+    return leagueSyncApi.processLeagueQueue(event.token, event.batchSize);
+  }
+  if (action === 'setLeagueSyncEnabled') {
+    return leagueSyncApi.setLeagueSyncEnabled(openid, event.enabled);
+  }
+  if (action === 'retryLeagueSyncMatch') {
+    return leagueSyncApi.retryLeagueSyncMatch(openid, event.matchId);
+  }
+  if (action === 'confirmLeagueSyncMatch') {
+    return leagueSyncApi.confirmLeagueSyncMatch(
+      openid,
+      event.matchId,
+      event.radiantPlayerIds,
+      event.direPlayerIds
+    );
   }
   if (action === 'saveProfile') {
     return saveProfile(openid, event.form || {});

@@ -1,0 +1,422 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const TOKEN = 'league-sync-test-token-1234567890abcdef';
+process.env.LEAGUE_SYNC_TOKEN = TOKEN;
+
+const {
+  assertLeagueSyncToken,
+  nextRetryAt
+} = require('../cloudfunctions/api/leagueSyncState');
+const { createLeagueSyncApi } = require('../cloudfunctions/api/leagueSyncApi');
+const { normalizeLeagueMatchIds } = require('../cloudfunctions/api/leagueSyncCore');
+
+function clone(value) {
+  return value === undefined ? undefined : structuredClone(value);
+}
+
+function createDb(seed = {}) {
+  const state = clone(seed);
+
+  function collection(name) {
+    state[name] = state[name] || {};
+    let where = null;
+    let order = null;
+    let maximum = Infinity;
+
+    const query = {
+      doc(id) {
+        return {
+          async get() {
+            if (!state[name][id]) {
+              throw new Error('document.get:fail document not exists');
+            }
+            return { data: clone(state[name][id]) };
+          },
+          async set({ data }) {
+            state[name][id] = { ...clone(data), _id: id };
+            return { updated: 1 };
+          },
+          async update({ data }) {
+            if (!state[name][id]) {
+              throw new Error('document.update:fail document not exists');
+            }
+            state[name][id] = { ...state[name][id], ...clone(data), _id: id };
+            return { updated: 1 };
+          }
+        };
+      },
+      where(criteria) {
+        where = criteria;
+        return query;
+      },
+      orderBy(field, direction) {
+        order = { field, direction };
+        return query;
+      },
+      limit(value) {
+        maximum = value;
+        return query;
+      },
+      async get() {
+        let rows = Object.values(state[name]);
+        if (where) {
+          rows = rows.filter((row) => Object.entries(where).every(([key, value]) => row[key] === value));
+        }
+        if (order) {
+          rows.sort((left, right) => {
+            const leftValue = left[order.field] instanceof Date ? left[order.field].getTime() : left[order.field];
+            const rightValue = right[order.field] instanceof Date ? right[order.field].getTime() : right[order.field];
+            if (leftValue === rightValue) return 0;
+            const result = leftValue > rightValue ? 1 : -1;
+            return order.direction === 'desc' ? -result : result;
+          });
+        }
+        return { data: clone(rows.slice(0, maximum)) };
+      },
+      async count() {
+        const result = await query.get();
+        return { total: result.data.length };
+      }
+    };
+    return query;
+  }
+
+  return {
+    state,
+    collection,
+    async runTransaction(callback) {
+      return callback({ collection });
+    }
+  };
+}
+
+function readyPreview(matchId) {
+  const side = (offset) => Array.from({ length: 5 }, (_, index) => ({
+    accountId: offset + index,
+    playerId: `p${offset + index}`,
+    name: `Player ${offset + index}`,
+    matched: true,
+    ambiguous: false,
+    kills: index,
+    deaths: 1,
+    assists: 2
+  }));
+  return {
+    matchId: String(matchId),
+    radiantWin: true,
+    radiantKills: 10,
+    direKills: 5,
+    radiant: side(1),
+    dire: side(6),
+    matchedCount: 10
+  };
+}
+
+function createApi(db, overrides = {}) {
+  const now = overrides.now || new Date('2026-07-17T02:00:00.000Z');
+  return createLeagueSyncApi({
+    db,
+    isAdminOpenid: (openid) => openid === 'admin',
+    normalizeLeagueMatchIds,
+    loadPreview: overrides.loadPreview || (async (matchId) => readyPreview(matchId)),
+    settleImportedMatch: overrides.settleImportedMatch || (async () => ({})),
+    applyActualLineupToPreview: overrides.applyActualLineupToPreview || ((preview) => preview),
+    getPlayers: overrides.getPlayers || (async () => []),
+    now: () => new Date(now),
+    createLockOwner: overrides.createLockOwner || (() => 'lock-owner-a')
+  });
+}
+
+test('internal token rejects missing, short, and mismatched values without disclosure', () => {
+  const configured = process.env.LEAGUE_SYNC_TOKEN;
+  for (const supplied of ['', 'short', `${configured}-wrong`, '\u754c'.repeat(configured.length)]) {
+    assert.throws(
+      () => assertLeagueSyncToken(supplied),
+      (error) => {
+        assert.equal(error.message.includes(configured), false);
+        if (supplied) {
+          assert.equal(error.message.includes(supplied), false);
+        }
+        return /authorization/i.test(error.message);
+      }
+    );
+  }
+
+  process.env.LEAGUE_SYNC_TOKEN = 'too-short';
+  assert.throws(() => assertLeagueSyncToken('too-short'), /authorization/i);
+  process.env.LEAGUE_SYNC_TOKEN = configured;
+  assert.equal(assertLeagueSyncToken(configured), true);
+});
+
+test('nextRetryAt follows the capped retry schedule', () => {
+  const now = new Date('2026-07-17T02:00:00.000Z');
+  assert.equal(nextRetryAt(1, now).toISOString(), '2026-07-17T02:05:00.000Z');
+  assert.equal(nextRetryAt(2, now).toISOString(), '2026-07-17T02:15:00.000Z');
+  assert.equal(nextRetryAt(6, now).toISOString(), '2026-07-17T08:00:00.000Z');
+  assert.equal(nextRetryAt(99, now).toISOString(), '2026-07-17T08:00:00.000Z');
+});
+
+test('discovery uses normalized IDs and preserves imported and review rows', async () => {
+  const db = createDb({
+    leagueSyncQueue: {
+      700002: { _id: '700002', matchId: '700002', status: 'imported', importedAt: 'kept' },
+      700003: { _id: '700003', matchId: '700003', status: 'needs_review', preview: { chosen: true } }
+    }
+  });
+  const api = createApi(db);
+
+  await assert.rejects(api.discoverLeagueMatches('bad-token', [{ match_id: 700001 }]), /authorization/i);
+  const result = await api.discoverLeagueMatches(TOKEN, [
+    { match_id: 700001 },
+    { match_id: '700002' },
+    { match_id: '700003' },
+    { match_id: 700001 },
+    { match_id: 'invalid' }
+  ]);
+
+  assert.deepEqual(result, { discovered: 3, inserted: 1 });
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'discovered');
+  assert.equal(db.state.leagueSyncQueue['700002'].importedAt, 'kept');
+  assert.deepEqual(db.state.leagueSyncQueue['700003'].preview, { chosen: true });
+});
+
+test('administrator retry resets only retryable queue rows', async () => {
+  const retryAt = new Date('2026-07-17T03:00:00.000Z');
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'failed', attempts: 3, error: 'safe', nextRetryAt: retryAt },
+      700002: { _id: '700002', matchId: '700002', status: 'imported' }
+    }
+  });
+  const api = createApi(db);
+
+  await assert.rejects(api.retryLeagueSyncMatch('player', '700001'), /administrator/i);
+  await assert.rejects(api.retryLeagueSyncMatch('admin', '700002'), /retryable/i);
+  const row = await api.retryLeagueSyncMatch('admin', '700001');
+
+  assert.equal(row.status, 'discovered');
+  assert.equal(row.attempts, 3);
+  assert.equal(db.state.leagueSyncQueue['700001'].error, '');
+  assert.equal(db.state.leagueSyncQueue['700001'].nextRetryAt, null);
+});
+
+test('administrator can pause and resume the deterministic default sync state', async () => {
+  const db = createDb();
+  const api = createApi(db);
+
+  await assert.rejects(api.setLeagueSyncEnabled('player', false), /administrator/i);
+  const paused = await api.setLeagueSyncEnabled('admin', false);
+
+  assert.equal(paused.enabled, false);
+  assert.equal(paused.leagueId, '20040');
+  assert.equal(db.state.system.leagueSync._id, 'leagueSync');
+  assert.equal(db.state.system.leagueSync.lockOwner, '');
+  assert.equal(db.state.system.leagueSync.lockExpiresAt, null);
+
+  const resumed = await api.setLeagueSyncEnabled('admin', true);
+  assert.equal(resumed.enabled, true);
+});
+
+test('processing respects pause and a live five-minute lock', async () => {
+  let loads = 0;
+  const db = createDb({
+    system: {
+      leagueSync: { _id: 'leagueSync', leagueId: '20040', enabled: false }
+    },
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'discovered' }
+    }
+  });
+  const api = createApi(db, { loadPreview: async () => { loads += 1; return readyPreview('700001'); } });
+
+  assert.deepEqual(await api.processLeagueQueue(TOKEN, 1), { skipped: true, reason: 'paused' });
+  db.state.system.leagueSync.enabled = true;
+  db.state.system.leagueSync.lockOwner = 'other-owner';
+  db.state.system.leagueSync.lockExpiresAt = new Date('2026-07-17T02:04:59.000Z');
+  assert.deepEqual(await api.processLeagueQueue(TOKEN, 1), { skipped: true, reason: 'locked' });
+  assert.equal(loads, 0);
+});
+
+test('due retries are selected before a page of future retries', async () => {
+  const future = new Date('2026-07-17T03:00:00.000Z');
+  const due = new Date('2026-07-17T01:59:00.000Z');
+  const db = createDb({ leagueSyncQueue: {} });
+  for (let index = 0; index < 100; index += 1) {
+    const matchId = String(710000 + index);
+    db.state.leagueSyncQueue[matchId] = {
+      _id: matchId,
+      matchId,
+      status: 'waiting_data',
+      nextRetryAt: future
+    };
+  }
+  db.state.leagueSyncQueue['799999'] = {
+    _id: '799999',
+    matchId: '799999',
+    status: 'waiting_data',
+    nextRetryAt: due
+  };
+  const loaded = [];
+  const api = createApi(db, {
+    loadPreview: async (matchId) => {
+      loaded.push(matchId);
+      return readyPreview(matchId);
+    }
+  });
+
+  const result = await api.processLeagueQueue(TOKEN, 1);
+
+  assert.equal(result.processed, 1);
+  assert.deepEqual(loaded, ['799999']);
+  assert.equal(db.state.leagueSyncQueue['799999'].status, 'imported');
+});
+
+test('processing isolates row failures, classifies previews, retries, and clamps batches to five', async () => {
+  const secret = process.env.LEAGUE_SYNC_TOKEN;
+  const db = createDb({ leagueSyncQueue: {} });
+  ['700001', '700002', '700003', '700004', '700005', '700006'].forEach((matchId) => {
+    db.state.leagueSyncQueue[matchId] = { _id: matchId, matchId, status: 'discovered', attempts: 0 };
+  });
+  const settled = [];
+  const api = createApi(db, {
+    loadPreview: async (matchId) => {
+      if (matchId === '700002') {
+        const preview = readyPreview(matchId);
+        preview.dire = [];
+        return preview;
+      }
+      if (matchId === '700003') {
+        const error = new Error(`pending https://upstream.invalid/?key=${secret}`);
+        error.code = 'MATCH_PENDING';
+        throw error;
+      }
+      if (matchId === '700004') {
+        throw new Error(`upstream exploded ${secret} with full raw details`);
+      }
+      return readyPreview(matchId);
+    },
+    settleImportedMatch: async (preview, metadata) => {
+      settled.push({ matchId: preview.matchId, metadata });
+    }
+  });
+
+  const result = await api.processLeagueQueue(TOKEN, 99);
+
+  assert.deepEqual(result, {
+    skipped: false,
+    processed: 5,
+    imported: 2,
+    needsReview: 1,
+    waitingData: 1,
+    failed: 1
+  });
+  assert.deepEqual(settled.map((entry) => entry.matchId), ['700001', '700005']);
+  assert.deepEqual(settled[0].metadata, { source: 'league-auto', leagueId: '20040' });
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'imported');
+  assert.equal(db.state.leagueSyncQueue['700002'].status, 'needs_review');
+  assert.equal(db.state.leagueSyncQueue['700002'].preview.dire.length, 0);
+  assert.equal(db.state.leagueSyncQueue['700003'].status, 'waiting_data');
+  assert.equal(db.state.leagueSyncQueue['700003'].attempts, 1);
+  assert.equal(db.state.leagueSyncQueue['700003'].nextRetryAt.toISOString(), '2026-07-17T02:05:00.000Z');
+  assert.equal(db.state.leagueSyncQueue['700004'].status, 'failed');
+  assert.equal(db.state.leagueSyncQueue['700006'].status, 'discovered');
+  assert.equal(JSON.stringify(db.state).includes(secret), false);
+  assert.equal(JSON.stringify(db.state).includes('https://upstream.invalid'), false);
+  assert.equal(db.state.system.leagueSync.lockOwner, '');
+  assert.equal(db.state.system.leagueSync.runCount, 1);
+  assert.equal(db.state.system.leagueSync.processedCount, 5);
+  assert.equal(db.state.system.leagueSync.failedCount, 1);
+});
+
+test('finally releases only the current lock owner', async () => {
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'discovered' }
+    }
+  });
+  const api = createApi(db, {
+    settleImportedMatch: async () => {
+      db.state.system.leagueSync.lockOwner = 'replacement-owner';
+      db.state.system.leagueSync.lockExpiresAt = new Date('2026-07-17T02:10:00.000Z');
+    }
+  });
+
+  await api.processLeagueQueue(TOKEN, 1);
+
+  assert.equal(db.state.system.leagueSync.lockOwner, 'replacement-owner');
+});
+
+test('administrator confirmation reuses reconciliation and never settles twice', async () => {
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'needs_review', preview: readyPreview('700001') }
+    }
+  });
+  let settlements = 0;
+  const api = createApi(db, {
+    getPlayers: async () => [{ id: 'p1' }],
+    applyActualLineupToPreview: (preview) => ({ ...preview, reconciled: true }),
+    settleImportedMatch: async (preview, metadata) => {
+      settlements += 1;
+      assert.equal(preview.reconciled, true);
+      assert.deepEqual(metadata, { source: 'league-auto', leagueId: '20040', players: [{ id: 'p1' }] });
+    }
+  });
+
+  await assert.rejects(api.confirmLeagueSyncMatch('player', '700001', [], []), /administrator/i);
+  const first = await api.confirmLeagueSyncMatch('admin', '700001', ['p1'], ['p2']);
+  const second = await api.confirmLeagueSyncMatch('admin', '700001', ['p1'], ['p2']);
+
+  assert.equal(first.status, 'imported');
+  assert.deepEqual(second, { matchId: '700001', status: 'imported', alreadyImported: true });
+  assert.equal(settlements, 1);
+});
+
+test('bootstrap state is client-safe and includes a bounded queue only for administrators', async () => {
+  const db = createDb({
+    system: {
+      leagueSync: {
+        _id: 'leagueSync',
+        leagueId: '20040',
+        enabled: true,
+        lockOwner: 'private-owner',
+        lockExpiresAt: new Date('2026-07-17T03:00:00.000Z'),
+        lastError: `raw https://upstream.invalid/state?token=${TOKEN}`
+      }
+    },
+    leagueSyncQueue: {}
+  });
+  for (let index = 0; index < 25; index += 1) {
+    const matchId = String(800000 + index);
+    db.state.leagueSyncQueue[matchId] = {
+      _id: matchId,
+      matchId,
+      status: index === 0 ? 'imported' : 'failed',
+      error: `raw https://upstream.invalid/queue?token=${TOKEN}`,
+      updatedAt: new Date(Date.UTC(2026, 6, 17, 2, index))
+    };
+  }
+  const api = createApi(db);
+
+  const playerState = await api.getClientLeagueSyncState('player');
+  const adminState = await api.getClientLeagueSyncState('admin');
+
+  assert.equal(playerState.pendingCount, 24);
+  assert.equal('queuePreview' in playerState, false);
+  assert.equal(adminState.queuePreview.length, 20);
+  assert.equal('lockOwner' in adminState, false);
+  assert.equal('lockExpiresAt' in adminState, false);
+  assert.equal(JSON.stringify(adminState).includes('private-owner'), false);
+  assert.equal(JSON.stringify(adminState).includes(TOKEN), false);
+  assert.equal(JSON.stringify(adminState).includes('https://upstream.invalid'), false);
+});
+
+test('internal state and forwarded administrator checks validate token first', async () => {
+  const api = createApi(createDb());
+
+  await assert.rejects(api.getLeagueSyncStateInternal('bad-token'), /authorization/i);
+  assert.throws(() => api.assertLeagueSyncAdmin('bad-token', 'player'), /authorization/i);
+  assert.throws(() => api.assertLeagueSyncAdmin(TOKEN, 'player'), /administrator/i);
+  assert.deepEqual(api.assertLeagueSyncAdmin(TOKEN, 'admin'), { authorized: true });
+});
