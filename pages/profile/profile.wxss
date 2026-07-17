@@ -140,14 +140,39 @@
   font-size: 21rpx;
 }
 
-.hero-chip text {
+.hero-chip {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 210rpx;
+}
+
+.hero-chip-image,
+.recent-hero-image {
+  flex-shrink: 0;
+  width: 76rpx;
+  height: 46rpx;
+  border-radius: 6rpx;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hero-chip-copy {
+  min-width: 0;
+}
+
+.hero-chip-copy text {
   display: block;
 }
 
-.hero-chip text + text {
+.hero-chip-copy text + text {
   margin-top: 4rpx;
   color: #8d98a8;
   font-size: 19rpx;
+}
+
+.recent-hero-image {
+  width: 88rpx;
+  height: 52rpx;
 }
 
 .personal-match {

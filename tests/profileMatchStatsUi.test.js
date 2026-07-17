@@ -22,6 +22,9 @@ test('profile displays rank record KDA economy heroes Steam IDs and recent match
   assert.match(wxml, /stats\.steamIds/);
   assert.match(wxml, /stats\.recentMatches/);
   assert.match(wxml, /bindtap="openPersonalMatch"/);
+  assert.match(wxml, /item\.heroImage/);
+  assert.match(wxml, /item\.heroName/);
+  assert.doesNotMatch(wxml, /英雄 \{\{item\.heroId\}\}/);
 });
 
 test('player card editor remains below personal statistics', () => {

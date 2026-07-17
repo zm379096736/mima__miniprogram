@@ -45,7 +45,7 @@ function buildRecentMatches(rows) {
       resultClass: won ? 'result-win' : 'result-loss',
       heroId,
       heroName: hero.name,
-      heroImage: hero.imageUrl,
+      heroImage: hero.imageUrl || '/images/tab.png',
       kdaText: `${number(snapshot.kills)} / ${number(snapshot.deaths)} / ${number(snapshot.assists)}`,
       duration: number(match.duration),
       durationText: durationText(match.duration),
@@ -69,7 +69,7 @@ function buildHeroSummary(rows) {
     .map((hero) => ({
       ...hero,
       heroName: heroById(hero.heroId).name,
-      heroImage: heroById(hero.heroId).imageUrl,
+      heroImage: heroById(hero.heroId).imageUrl || '/images/tab.png',
       winRateText: `${Math.round(hero.wins * 100 / hero.matches)}%`
     }));
 }
