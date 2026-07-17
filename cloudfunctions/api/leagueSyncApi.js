@@ -16,6 +16,7 @@ const {
 
 const STATE_DOCUMENT_ID = 'leagueSync';
 const LOCK_DURATION_MS = 5 * 60 * 1000;
+const QUEUE_SCAN_LIMIT = 1000;
 
 function isMissingDocumentError(error) {
   const message = String(error && (error.errMsg || error.message || error)).toLowerCase();
@@ -109,15 +110,45 @@ function createLeagueSyncApi(dependencies) {
     return writer.collection('leagueSyncQueue').doc(matchId);
   }
 
+  function importedMatchReference(matchId, writer = db) {
+    return writer.collection('matches').doc(`imported-${matchId}`);
+  }
+
+  async function hasAuthoritativeMatch(matchId, writer = db) {
+    return Boolean(await readDocument(importedMatchReference(matchId, writer)));
+  }
+
+  function importedQueueData(timestamp) {
+    return {
+      status: 'imported',
+      error: '',
+      nextRetryAt: null,
+      processingOwner: '',
+      importedAt: timestamp,
+      updatedAt: timestamp
+    };
+  }
+
+  async function convergeQueueInTransaction(matchId) {
+    return db.runTransaction(async (transaction) => {
+      if (!await hasAuthoritativeMatch(matchId, transaction)) return null;
+      const data = importedQueueData(now());
+      await queueReference(matchId, transaction).update({ data });
+      return { status: 'imported' };
+    });
+  }
+
   async function ensureLeagueSyncState() {
-    const reference = stateReference();
-    const existing = await readDocument(reference);
-    if (existing) {
-      return { ...defaultLeagueSyncState(now()), ...existing };
-    }
-    const state = defaultLeagueSyncState(now());
-    await reference.set({ data: state });
-    return { ...state, _id: STATE_DOCUMENT_ID };
+    return db.runTransaction(async (transaction) => {
+      const reference = stateReference(transaction);
+      const existing = await readDocument(reference);
+      if (existing) {
+        return { ...defaultLeagueSyncState(now()), ...existing };
+      }
+      const state = defaultLeagueSyncState(now());
+      await reference.set({ data: state });
+      return { ...state, _id: STATE_DOCUMENT_ID };
+    });
   }
 
   function assertLeagueSyncAdmin(token, operatorOpenid) {
@@ -137,22 +168,24 @@ function createLeagueSyncApi(dependencies) {
     const matchIds = normalizeLeagueMatchIds(payload);
     let inserted = 0;
     for (const matchId of matchIds) {
-      const reference = queueReference(matchId);
-      if (await readDocument(reference)) continue;
-      const timestamp = now();
-      await reference.set({
-        data: {
-          matchId,
-          status: 'discovered',
-          attempts: 0,
-          error: '',
-          nextRetryAt: null,
-          discoveredAt: timestamp,
-          createdAt: timestamp,
-          updatedAt: timestamp
-        }
+      inserted += await db.runTransaction(async (transaction) => {
+        const reference = queueReference(matchId, transaction);
+        if (await readDocument(reference)) return 0;
+        const timestamp = now();
+        await reference.set({
+          data: {
+            matchId,
+            status: 'discovered',
+            attempts: 0,
+            error: '',
+            nextRetryAt: null,
+            discoveredAt: timestamp,
+            createdAt: timestamp,
+            updatedAt: timestamp
+          }
+        });
+        return 1;
       });
-      inserted += 1;
     }
     return { discovered: matchIds.length, inserted };
   }
@@ -170,36 +203,49 @@ function createLeagueSyncApi(dependencies) {
   async function retryLeagueSyncMatch(openid, value) {
     assertAdministrator(openid);
     const matchId = normalizeMatchId(value);
-    const reference = queueReference(matchId);
-    const row = await readDocument(reference);
-    if (!row || !RETRYABLE_STATUSES.includes(row.status)) {
-      throw new Error('League sync match is not retryable');
-    }
-    await reference.update({
-      data: {
-        status: 'discovered',
-        error: '',
-        nextRetryAt: null,
-        processingOwner: '',
-        updatedAt: now()
+    return db.runTransaction(async (transaction) => {
+      const reference = queueReference(matchId, transaction);
+      const row = await readDocument(reference);
+      if (!row || !RETRYABLE_STATUSES.includes(row.status)) {
+        throw new Error('League sync match is not retryable');
       }
+      const timestamp = now();
+      const data = await hasAuthoritativeMatch(matchId, transaction)
+        ? importedQueueData(timestamp)
+        : {
+          status: 'discovered',
+          error: '',
+          nextRetryAt: null,
+          processingOwner: '',
+          updatedAt: timestamp
+        };
+      await reference.update({ data });
+      return safeQueueRow({ ...row, ...data });
     });
-    return safeQueueRow(await readDocument(reference));
   }
 
   async function acquireLock(owner) {
-    await ensureLeagueSyncState();
     return db.runTransaction(async (transaction) => {
       const reference = stateReference(transaction);
       const state = await readDocument(reference);
-      if (state && state.enabled === false) {
+      const currentTime = now();
+      const lockExpiresAt = new Date(currentTime.getTime() + LOCK_DURATION_MS);
+      if (!state) {
+        const initialized = {
+          ...defaultLeagueSyncState(currentTime),
+          lockOwner: owner,
+          lockExpiresAt,
+          updatedAt: currentTime
+        };
+        await reference.set({ data: initialized });
+        return { acquired: true, state: initialized };
+      }
+      if (state.enabled === false) {
         return { acquired: false, reason: 'paused' };
       }
-      const currentTime = now();
-      if (state && state.lockOwner && dateValue(state.lockExpiresAt) > currentTime.getTime()) {
+      if (state.lockOwner && dateValue(state.lockExpiresAt) > currentTime.getTime()) {
         return { acquired: false, reason: 'locked' };
       }
-      const lockExpiresAt = new Date(currentTime.getTime() + LOCK_DURATION_MS);
       await reference.update({
         data: { lockOwner: owner, lockExpiresAt, updatedAt: currentTime }
       });
@@ -220,18 +266,11 @@ function createLeagueSyncApi(dependencies) {
   }
 
   async function eligibleRows(batchSize) {
-    const candidates = [];
-    for (const status of ['discovered', 'waiting_data', 'failed']) {
-      const orderField = status === 'discovered' ? 'createdAt' : 'nextRetryAt';
-      const result = await db.collection('leagueSyncQueue')
-        .where({ status })
-        .orderBy(orderField, 'asc')
-        .limit(100)
-        .get();
-      candidates.push(...(result.data || []));
-    }
+    // League 20040 stays below this operational bound. One unindexed page keeps
+    // every active row in the in-memory eligibility sort without composite indexes.
+    const result = await db.collection('leagueSyncQueue').limit(QUEUE_SCAN_LIMIT).get();
     const currentTime = now();
-    return candidates
+    return (result.data || [])
       .filter((row) => isEligibleQueueRow(row, currentTime))
       .sort((left, right) => {
         const leftTime = dateValue(left.nextRetryAt || left.discoveredAt || left.createdAt);
@@ -241,18 +280,23 @@ function createLeagueSyncApi(dependencies) {
       .slice(0, batchSize);
   }
 
-  async function processQueueRow(row, owner, leagueId) {
-    const matchId = normalizeMatchId(row.matchId);
-    const reference = queueReference(matchId);
-    await reference.update({
-      data: {
-        status: 'processing',
-        processingOwner: owner,
-        processingAt: now(),
-        updatedAt: now()
-      }
-    });
+  async function processQueueRow(row, owner) {
+    let matchId = '';
+    let reference = null;
     try {
+      matchId = normalizeMatchId(row.matchId);
+      reference = queueReference(matchId);
+      const existing = await convergeQueueInTransaction(matchId);
+      if (existing) return existing;
+
+      await reference.update({
+        data: {
+          status: 'processing',
+          processingOwner: owner,
+          processingAt: now(),
+          updatedAt: now()
+        }
+      });
       const preview = normalizeStoredPreview(await loadPreview(matchId));
       const classification = classifyPreview(preview);
       if (classification.status !== 'ready') {
@@ -271,33 +315,45 @@ function createLeagueSyncApi(dependencies) {
         return { status: 'needs_review' };
       }
 
-      await settleImportedMatch(preview, { source: 'league-auto', leagueId });
+      await settleImportedMatch(preview, {
+        source: 'league-auto',
+        leagueId: DEFAULT_LEAGUE_ID
+      });
       await reference.update({
         data: {
-          status: 'imported',
+          ...importedQueueData(now()),
           preview,
-          error: '',
-          nextRetryAt: null,
-          processingOwner: '',
-          importedAt: now(),
-          updatedAt: now()
         }
       });
       return { status: 'imported' };
     } catch (error) {
+      if (matchId) {
+        try {
+          const recovered = await convergeQueueInTransaction(matchId);
+          if (recovered) return recovered;
+        } catch (convergenceError) {
+          // Preserve the original row error when convergence itself cannot write.
+        }
+      }
       const attempts = Number(row.attempts || 0) + 1;
       const status = error && error.code === 'MATCH_PENDING' ? 'waiting_data' : 'failed';
       const safeError = sanitizeLeagueSyncError(error);
-      await reference.update({
-        data: {
-          status,
-          attempts,
-          error: safeError,
-          nextRetryAt: nextRetryAt(attempts, now()),
-          processingOwner: '',
-          updatedAt: now()
+      if (reference) {
+        try {
+          await reference.update({
+            data: {
+              status,
+              attempts,
+              error: safeError,
+              nextRetryAt: nextRetryAt(attempts, now()),
+              processingOwner: '',
+              updatedAt: now()
+            }
+          });
+        } catch (writeError) {
+          // The row remains eligible for a later run when even failure persistence is unavailable.
         }
-      });
+      }
       return { status, error: safeError };
     }
   }
@@ -343,7 +399,7 @@ function createLeagueSyncApi(dependencies) {
     try {
       const rows = await eligibleRows(batchSize);
       for (const row of rows) {
-        const outcome = await processQueueRow(row, owner, lock.state.leagueId || DEFAULT_LEAGUE_ID);
+        const outcome = await processQueueRow(row, owner);
         counts.processed += 1;
         if (outcome.status === 'imported') counts.imported += 1;
         if (outcome.status === 'needs_review') counts.needsReview += 1;
@@ -365,15 +421,27 @@ function createLeagueSyncApi(dependencies) {
   async function confirmLeagueSyncMatch(openid, value, radiantPlayerIds, direPlayerIds) {
     assertAdministrator(openid);
     const matchId = normalizeMatchId(value);
-    const reference = queueReference(matchId);
-    const row = await readDocument(reference);
-    if (!row) throw new Error('League sync match was not found');
-    if (row.status === 'imported') {
+    const preflight = await db.runTransaction(async (transaction) => {
+      const reference = queueReference(matchId, transaction);
+      const row = await readDocument(reference);
+      if (!row) throw new Error('League sync match was not found');
+      if (await hasAuthoritativeMatch(matchId, transaction)) {
+        const data = importedQueueData(now());
+        await reference.update({ data });
+        return { done: true, row: { ...row, ...data } };
+      }
+      if (row.status === 'imported') {
+        return { done: true, row };
+      }
+      if (row.status !== 'needs_review' || !row.preview) {
+        throw new Error('League sync match does not have a review preview');
+      }
+      return { done: false, row };
+    });
+    if (preflight.done) {
       return { matchId, status: 'imported', alreadyImported: true };
     }
-    if (row.status !== 'needs_review' || !row.preview) {
-      throw new Error('League sync match does not have a review preview');
-    }
+    const row = preflight.row;
     const players = await getPlayers();
     const reconciled = applyActualLineupToPreview(
       row.preview,
@@ -381,22 +449,24 @@ function createLeagueSyncApi(dependencies) {
       direPlayerIds,
       players
     );
-    await settleImportedMatch(reconciled, {
-      source: 'league-auto',
-      leagueId: DEFAULT_LEAGUE_ID,
-      players
-    });
-    await reference.update({
-      data: {
-        status: 'imported',
-        preview: normalizeStoredPreview(reconciled),
-        error: '',
-        nextRetryAt: null,
-        importedAt: now(),
-        updatedAt: now()
-      }
-    });
-    return safeQueueRow(await readDocument(reference));
+    try {
+      await settleImportedMatch(reconciled, {
+        source: 'league-auto',
+        leagueId: DEFAULT_LEAGUE_ID,
+        players
+      });
+      await queueReference(matchId).update({
+        data: {
+          ...importedQueueData(now()),
+          preview: normalizeStoredPreview(reconciled)
+        }
+      });
+    } catch (error) {
+      const recovered = await convergeQueueInTransaction(matchId);
+      if (!recovered) throw error;
+      return { matchId, status: 'imported', alreadyImported: true };
+    }
+    return safeQueueRow(await readDocument(queueReference(matchId)));
   }
 
   async function pendingCount() {

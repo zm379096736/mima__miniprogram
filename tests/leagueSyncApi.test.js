@@ -15,10 +15,12 @@ function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
 }
 
-function createDb(seed = {}) {
+function createDb(seed = {}, options = {}) {
   const state = clone(seed);
+  const queryLog = [];
+  let transactionTail = Promise.resolve();
 
-  function collection(name) {
+  function collection(name, context = { transaction: false }) {
     state[name] = state[name] || {};
     let where = null;
     let order = null;
@@ -28,20 +30,32 @@ function createDb(seed = {}) {
       doc(id) {
         return {
           async get() {
-            if (!state[name][id]) {
+            const details = { name, id, transaction: context.transaction, state };
+            if (options.beforeDocumentGet) await options.beforeDocumentGet(details);
+            const data = clone(state[name][id]);
+            if (options.afterDocumentGet) {
+              await options.afterDocumentGet({ ...details, data, exists: Boolean(data) });
+            }
+            if (!data) {
               throw new Error('document.get:fail document not exists');
             }
-            return { data: clone(state[name][id]) };
+            return { data };
           },
           async set({ data }) {
+            const details = { name, id, data: clone(data), transaction: context.transaction, state };
+            if (options.beforeDocumentSet) await options.beforeDocumentSet(details);
             state[name][id] = { ...clone(data), _id: id };
+            if (options.afterDocumentSet) await options.afterDocumentSet(details);
             return { updated: 1 };
           },
           async update({ data }) {
+            const details = { name, id, data: clone(data), transaction: context.transaction, state };
+            if (options.beforeDocumentUpdate) await options.beforeDocumentUpdate(details);
             if (!state[name][id]) {
               throw new Error('document.update:fail document not exists');
             }
             state[name][id] = { ...state[name][id], ...clone(data), _id: id };
+            if (options.afterDocumentUpdate) await options.afterDocumentUpdate(details);
             return { updated: 1 };
           }
         };
@@ -59,6 +73,7 @@ function createDb(seed = {}) {
         return query;
       },
       async get() {
+        queryLog.push({ name, where: clone(where), order: clone(order), maximum });
         let rows = Object.values(state[name]);
         if (where) {
           rows = rows.filter((row) => Object.entries(where).every(([key, value]) => row[key] === value));
@@ -84,11 +99,28 @@ function createDb(seed = {}) {
 
   return {
     state,
+    queryLog,
     collection,
     async runTransaction(callback) {
-      return callback({ collection });
+      const previous = transactionTail;
+      let release;
+      transactionTail = new Promise((resolve) => { release = resolve; });
+      await previous;
+      try {
+        return await callback({
+          collection: (name) => collection(name, { transaction: true })
+        });
+      } finally {
+        release();
+      }
     }
   };
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
 }
 
 function readyPreview(matchId) {
@@ -181,6 +213,36 @@ test('discovery uses normalized IDs and preserves imported and review rows', asy
   assert.deepEqual(db.state.leagueSyncQueue['700003'].preview, { chosen: true });
 });
 
+test('discovery create-if-absent cannot overwrite a concurrent review row', async () => {
+  let raced = false;
+  const insertReview = ({ state }) => {
+    state.leagueSyncQueue['700001'] = {
+      _id: '700001',
+      matchId: '700001',
+      status: 'needs_review',
+      preview: { chosen: true }
+    };
+    raced = true;
+  };
+  const db = createDb({ leagueSyncQueue: {} }, {
+    beforeDocumentGet(details) {
+      if (details.transaction && details.name === 'leagueSyncQueue'
+        && details.id === '700001' && !raced) insertReview(details);
+    },
+    afterDocumentGet(details) {
+      if (!details.transaction && details.name === 'leagueSyncQueue'
+        && details.id === '700001' && !details.exists && !raced) insertReview(details);
+    }
+  });
+  const api = createApi(db);
+
+  const result = await api.discoverLeagueMatches(TOKEN, [{ match_id: 700001 }]);
+
+  assert.deepEqual(result, { discovered: 1, inserted: 0 });
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'needs_review');
+  assert.deepEqual(db.state.leagueSyncQueue['700001'].preview, { chosen: true });
+});
+
 test('administrator retry resets only retryable queue rows', async () => {
   const retryAt = new Date('2026-07-17T03:00:00.000Z');
   const db = createDb({
@@ -199,6 +261,57 @@ test('administrator retry resets only retryable queue rows', async () => {
   assert.equal(row.attempts, 3);
   assert.equal(db.state.leagueSyncQueue['700001'].error, '');
   assert.equal(db.state.leagueSyncQueue['700001'].nextRetryAt, null);
+});
+
+test('administrator retry cannot regress a concurrently imported queue row', async () => {
+  let raced = false;
+  const markImported = ({ state }) => {
+    state.leagueSyncQueue['700001'] = {
+      ...state.leagueSyncQueue['700001'],
+      status: 'imported',
+      importedAt: 'concurrent'
+    };
+    raced = true;
+  };
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'failed' }
+    }
+  }, {
+    beforeDocumentGet(details) {
+      if (details.transaction && details.name === 'leagueSyncQueue'
+        && details.id === '700001' && !raced) markImported(details);
+    },
+    afterDocumentGet(details) {
+      if (!details.transaction && details.name === 'leagueSyncQueue'
+        && details.id === '700001' && details.data.status === 'failed' && !raced) markImported(details);
+    }
+  });
+  const api = createApi(db);
+
+  await assert.rejects(api.retryLeagueSyncMatch('admin', '700001'), /retryable/i);
+
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'imported');
+  assert.equal(db.state.leagueSyncQueue['700001'].importedAt, 'concurrent');
+});
+
+test('administrator retry converges an authoritative imported match without scoring', async () => {
+  const db = createDb({
+    matches: {
+      'imported-700001': { _id: 'imported-700001', matchId: '700001' }
+    },
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'failed', attempts: 1 }
+    }
+  });
+  const api = createApi(db, {
+    settleImportedMatch: async () => assert.fail('retry must not settle again')
+  });
+
+  const row = await api.retryLeagueSyncMatch('admin', '700001');
+
+  assert.equal(row.status, 'imported');
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'imported');
 });
 
 test('administrator can pause and resume the deterministic default sync state', async () => {
@@ -238,11 +351,75 @@ test('processing respects pause and a live five-minute lock', async () => {
   assert.equal(loads, 0);
 });
 
+test('concurrent first runs initialize and acquire the state lock atomically', async () => {
+  const bothMissing = deferred();
+  const lockWritten = deferred();
+  let missingReads = 0;
+  let outsideSets = 0;
+  const db = createDb({}, {
+    async afterDocumentGet(details) {
+      if (details.name !== 'system' || details.id !== 'leagueSync'
+        || details.transaction || details.exists) return;
+      missingReads += 1;
+      if (missingReads === 2) bothMissing.resolve();
+      await bothMissing.promise;
+    },
+    async beforeDocumentSet(details) {
+      if (details.name !== 'system' || details.id !== 'leagueSync' || details.transaction) return;
+      outsideSets += 1;
+      if (outsideSets === 2) await lockWritten.promise;
+    },
+    afterDocumentUpdate(details) {
+      if (details.name === 'system' && details.id === 'leagueSync'
+        && details.transaction && details.data.lockOwner) lockWritten.resolve();
+    }
+  });
+  let owner = 0;
+  const api = createApi(db, { createLockOwner: () => `owner-${owner += 1}` });
+
+  const results = await Promise.all([
+    api.processLeagueQueue(TOKEN, 1),
+    api.processLeagueQueue(TOKEN, 1)
+  ]);
+
+  assert.equal(results.filter((result) => result.skipped === false).length, 1);
+  assert.equal(results.filter((result) => result.reason === 'locked').length, 1);
+  assert.equal(outsideSets, 0);
+});
+
+test('a concurrent first state reader cannot clobber a newly acquired lock', async () => {
+  const lockWritten = deferred();
+  let outsideSets = 0;
+  const db = createDb({}, {
+    async afterDocumentGet(details) {
+      if (details.name === 'system' && details.id === 'leagueSync'
+        && !details.transaction && !details.exists) await lockWritten.promise;
+    },
+    beforeDocumentSet(details) {
+      if (details.name === 'system' && details.id === 'leagueSync' && !details.transaction) {
+        outsideSets += 1;
+      }
+    },
+    afterDocumentSet(details) {
+      if (details.name === 'system' && details.id === 'leagueSync'
+        && details.transaction && details.data.lockOwner) lockWritten.resolve();
+    }
+  });
+  const api = createApi(db);
+
+  await Promise.all([
+    api.getLeagueSyncStateInternal(TOKEN),
+    api.processLeagueQueue(TOKEN, 1)
+  ]);
+
+  assert.equal(outsideSets, 0);
+});
+
 test('due retries are selected before a page of future retries', async () => {
   const future = new Date('2026-07-17T03:00:00.000Z');
   const due = new Date('2026-07-17T01:59:00.000Z');
   const db = createDb({ leagueSyncQueue: {} });
-  for (let index = 0; index < 100; index += 1) {
+  for (let index = 0; index < 999; index += 1) {
     const matchId = String(710000 + index);
     db.state.leagueSyncQueue[matchId] = {
       _id: matchId,
@@ -270,6 +447,93 @@ test('due retries are selected before a page of future retries', async () => {
   assert.equal(result.processed, 1);
   assert.deepEqual(loaded, ['799999']);
   assert.equal(db.state.leagueSyncQueue['799999'].status, 'imported');
+  const queueReads = db.queryLog.filter((entry) => entry.name === 'leagueSyncQueue');
+  assert.deepEqual(queueReads, [{ name: 'leagueSyncQueue', where: null, order: null, maximum: 1000 }]);
+});
+
+test('processing always settles with the literal default league id', async () => {
+  const db = createDb({
+    system: {
+      leagueSync: { _id: 'leagueSync', enabled: true, leagueId: '99999' }
+    },
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'discovered' }
+    }
+  });
+  const metadata = [];
+  const api = createApi(db, {
+    settleImportedMatch: async (preview, value) => metadata.push(value)
+  });
+
+  await api.processLeagueQueue(TOKEN, 1);
+
+  assert.deepEqual(metadata, [{ source: 'league-auto', leagueId: '20040' }]);
+});
+
+test('authoritative settlement converges after the first queue completion write fails', async () => {
+  let importedWriteFailed = false;
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'discovered' }
+    }
+  }, {
+    beforeDocumentUpdate(details) {
+      if (details.name === 'leagueSyncQueue' && details.id === '700001'
+        && details.data.status === 'imported' && !importedWriteFailed) {
+        importedWriteFailed = true;
+        throw new Error('queue completion write failed');
+      }
+    }
+  });
+  let settlements = 0;
+  const api = createApi(db, {
+    settleImportedMatch: async (preview) => {
+      settlements += 1;
+      db.state.matches = db.state.matches || {};
+      db.state.matches[`imported-${preview.matchId}`] = {
+        _id: `imported-${preview.matchId}`,
+        matchId: preview.matchId
+      };
+    }
+  });
+
+  const result = await api.processLeagueQueue(TOKEN, 1);
+
+  assert.equal(result.imported, 1);
+  assert.equal(result.failed, 0);
+  assert.equal(settlements, 1);
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'imported');
+});
+
+test('a claim write failure is isolated and later batch rows still run', async () => {
+  let claimFailed = false;
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'discovered' },
+      700002: { _id: '700002', matchId: '700002', status: 'discovered' }
+    }
+  }, {
+    beforeDocumentUpdate(details) {
+      if (details.name === 'leagueSyncQueue' && details.id === '700001'
+        && details.data.status === 'processing' && !claimFailed) {
+        claimFailed = true;
+        throw new Error('claim write failed');
+      }
+    }
+  });
+  const settled = [];
+  const api = createApi(db, {
+    settleImportedMatch: async (preview) => settled.push(preview.matchId)
+  });
+
+  const result = await api.processLeagueQueue(TOKEN, 2);
+
+  assert.equal(result.processed, 2);
+  assert.equal(result.failed, 1);
+  assert.equal(result.imported, 1);
+  assert.deepEqual(settled, ['700002']);
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'failed');
+  assert.equal(db.state.leagueSyncQueue['700002'].status, 'imported');
 });
 
 test('processing isolates row failures, classifies previews, retries, and clamps batches to five', async () => {
@@ -371,6 +635,27 @@ test('administrator confirmation reuses reconciliation and never settles twice',
   assert.equal(first.status, 'imported');
   assert.deepEqual(second, { matchId: '700001', status: 'imported', alreadyImported: true });
   assert.equal(settlements, 1);
+});
+
+test('administrator confirmation converges an authoritative match without scoring again', async () => {
+  const db = createDb({
+    matches: {
+      'imported-700001': { _id: 'imported-700001', matchId: '700001' }
+    },
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'needs_review', preview: readyPreview('700001') }
+    }
+  });
+  let settlements = 0;
+  const api = createApi(db, {
+    settleImportedMatch: async () => { settlements += 1; }
+  });
+
+  const row = await api.confirmLeagueSyncMatch('admin', '700001', [], []);
+
+  assert.equal(row.status, 'imported');
+  assert.equal(settlements, 0);
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'imported');
 });
 
 test('bootstrap state is client-safe and includes a bounded queue only for administrators', async () => {
