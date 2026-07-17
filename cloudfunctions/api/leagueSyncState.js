@@ -2,6 +2,7 @@ const crypto = require('crypto');
 
 const DEFAULT_LEAGUE_ID = '20040';
 const RETRY_DELAYS_MINUTES = [5, 15, 30, 60, 180, 360];
+const PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const PENDING_STATUSES = ['discovered', 'waiting_data', 'needs_review', 'processing', 'failed'];
 const RETRYABLE_STATUSES = ['waiting_data', 'needs_review', 'failed'];
 
@@ -81,6 +82,10 @@ function dateValue(value) {
 function isEligibleQueueRow(row, now = new Date()) {
   if (!row) return false;
   if (row.status === 'discovered') return true;
+  if (row.status === 'processing') {
+    const processingAt = dateValue(row.processingAt);
+    return processingAt > 0 && processingAt < dateValue(now) - PROCESSING_LEASE_MS;
+  }
   if (row.status !== 'waiting_data' && row.status !== 'failed') return false;
   return !row.nextRetryAt || dateValue(row.nextRetryAt) <= dateValue(now);
 }
@@ -122,6 +127,7 @@ function normalizeStoredPreview(preview) {
 module.exports = {
   DEFAULT_LEAGUE_ID,
   RETRY_DELAYS_MINUTES,
+  PROCESSING_LEASE_MS,
   PENDING_STATUSES,
   RETRYABLE_STATUSES,
   assertLeagueSyncToken,

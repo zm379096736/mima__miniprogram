@@ -451,6 +451,111 @@ test('due retries are selected before a page of future retries', async () => {
   assert.deepEqual(queueReads, [{ name: 'leagueSyncQueue', where: null, order: null, maximum: 1000 }]);
 });
 
+test('stale processing with an authoritative match converges without scoring again', async () => {
+  let loads = 0;
+  let settlements = 0;
+  const db = createDb({
+    matches: {
+      'imported-700001': { _id: 'imported-700001', matchId: '700001' }
+    },
+    leagueSyncQueue: {
+      700001: {
+        _id: '700001',
+        matchId: '700001',
+        status: 'processing',
+        processingOwner: 'crashed-owner',
+        processingAt: new Date('2026-07-17T01:54:59.000Z')
+      }
+    }
+  });
+  const api = createApi(db, {
+    loadPreview: async () => { loads += 1; return readyPreview('700001'); },
+    settleImportedMatch: async () => { settlements += 1; }
+  });
+
+  const result = await api.processLeagueQueue(TOKEN, 1);
+
+  assert.equal(result.processed, 1);
+  assert.equal(result.imported, 1);
+  assert.equal(loads, 0);
+  assert.equal(settlements, 0);
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'imported');
+  assert.equal(db.state.leagueSyncQueue['700001'].processingOwner, '');
+});
+
+test('stale processing without an authoritative match is reclaimed and retried', async () => {
+  const claims = [];
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: {
+        _id: '700001',
+        matchId: '700001',
+        status: 'processing',
+        processingOwner: 'crashed-owner',
+        processingAt: new Date('2026-07-17T01:54:59.000Z')
+      }
+    }
+  }, {
+    beforeDocumentUpdate(details) {
+      if (details.name === 'leagueSyncQueue' && details.id === '700001'
+        && details.data.status === 'processing') claims.push(details.data);
+    }
+  });
+  const loaded = [];
+  const settled = [];
+  const api = createApi(db, {
+    loadPreview: async (matchId) => { loaded.push(matchId); return readyPreview(matchId); },
+    settleImportedMatch: async (preview) => { settled.push(preview.matchId); }
+  });
+
+  const result = await api.processLeagueQueue(TOKEN, 1);
+
+  assert.equal(result.processed, 1);
+  assert.equal(result.imported, 1);
+  assert.deepEqual(loaded, ['700001']);
+  assert.deepEqual(settled, ['700001']);
+  assert.equal(claims.length, 1);
+  assert.equal(claims[0].processingOwner, 'lock-owner-a');
+  assert.deepEqual(claims[0].processingAt, new Date('2026-07-17T02:00:00.000Z'));
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'imported');
+});
+
+test('a processing lease exactly five minutes old remains untouched', async () => {
+  let queueWrites = 0;
+  let loads = 0;
+  let settlements = 0;
+  const processingAt = new Date('2026-07-17T01:55:00.000Z');
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: {
+        _id: '700001',
+        matchId: '700001',
+        status: 'processing',
+        processingOwner: 'live-owner',
+        processingAt
+      }
+    }
+  }, {
+    beforeDocumentUpdate(details) {
+      if (details.name === 'leagueSyncQueue' && details.id === '700001') queueWrites += 1;
+    }
+  });
+  const api = createApi(db, {
+    loadPreview: async () => { loads += 1; return readyPreview('700001'); },
+    settleImportedMatch: async () => { settlements += 1; }
+  });
+
+  const result = await api.processLeagueQueue(TOKEN, 1);
+
+  assert.equal(result.processed, 0);
+  assert.equal(loads, 0);
+  assert.equal(settlements, 0);
+  assert.equal(queueWrites, 0);
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'processing');
+  assert.equal(db.state.leagueSyncQueue['700001'].processingOwner, 'live-owner');
+  assert.deepEqual(db.state.leagueSyncQueue['700001'].processingAt, processingAt);
+});
+
 test('processing always settles with the literal default league id', async () => {
   const db = createDb({
     system: {

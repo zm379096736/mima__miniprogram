@@ -124,6 +124,7 @@ function createLeagueSyncApi(dependencies) {
       error: '',
       nextRetryAt: null,
       processingOwner: '',
+      processingAt: null,
       importedAt: timestamp,
       updatedAt: timestamp
     };
@@ -217,6 +218,7 @@ function createLeagueSyncApi(dependencies) {
           error: '',
           nextRetryAt: null,
           processingOwner: '',
+          processingAt: null,
           updatedAt: timestamp
         };
       await reference.update({ data });
@@ -309,6 +311,7 @@ function createLeagueSyncApi(dependencies) {
             error: '',
             nextRetryAt: null,
             processingOwner: '',
+            processingAt: null,
             updatedAt: now()
           }
         });
@@ -347,6 +350,7 @@ function createLeagueSyncApi(dependencies) {
               error: safeError,
               nextRetryAt: nextRetryAt(attempts, now()),
               processingOwner: '',
+              processingAt: null,
               updatedAt: now()
             }
           });
