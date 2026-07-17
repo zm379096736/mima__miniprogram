@@ -2,6 +2,96 @@
   margin-top: 16rpx;
 }
 
+.sync-panel {
+  border-color: rgba(244, 196, 48, 0.32);
+}
+
+.sync-status-row,
+.sync-actions,
+.sync-queue-row,
+.sync-row-actions {
+  display: flex;
+  align-items: center;
+}
+
+.sync-status-row {
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.sync-status {
+  color: #f4c430;
+  font-weight: 800;
+}
+
+.sync-error,
+.sync-row-error {
+  margin-top: 12rpx;
+  color: #ff8b95;
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+
+.sync-actions {
+  gap: 14rpx;
+  margin-top: 18rpx;
+}
+
+.sync-actions button {
+  flex: 1;
+  margin-top: 0;
+}
+
+.sync-queue {
+  margin-top: 22rpx;
+  border-top: 2rpx solid rgba(255, 255, 255, 0.08);
+}
+
+.sync-queue-row {
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-bottom: 2rpx solid rgba(255, 255, 255, 0.07);
+}
+
+.sync-queue-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sync-row-actions {
+  flex-shrink: 0;
+  gap: 10rpx;
+}
+
+.sync-row-actions button {
+  margin-top: 0;
+}
+
+.review-panel {
+  margin-top: 24rpx;
+  padding-top: 22rpx;
+  border-top: 2rpx solid rgba(244, 196, 48, 0.25);
+}
+
+.sync-member-strip {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 24rpx 22rpx;
+  padding: 16rpx 20rpx;
+  border: 2rpx solid rgba(244, 196, 48, 0.18);
+  border-radius: 8rpx;
+  color: #b9ad9a;
+  background: rgba(244, 196, 48, 0.05);
+  font-size: 22rpx;
+}
+
+.match-source {
+  margin-top: 6rpx;
+  color: #f4c430;
+  font-size: 21rpx;
+}
+
 .result-actions {
   display: grid;
   gap: 16rpx;

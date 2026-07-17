@@ -4,8 +4,13 @@ const {
   recordMatchResult,
   previewImportedMatch: fetchImportedMatch,
   confirmImportedMatch: saveImportedMatch,
+  runLeagueSyncNow: requestLeagueSyncNow,
+  setLeagueSyncEnabled,
+  retryLeagueSyncMatch: requestLeagueSyncRetry,
+  confirmLeagueSyncMatch,
   deleteMatchRecord
 } = require('../../utils/cloudStore');
+const { buildLeagueSyncView, matchSourceText } = require('../../utils/leagueSyncView');
 
 function buildPlayerOptions(players) {
   const selectable = (players || [])
@@ -58,7 +63,12 @@ Page({
     importMatchId: '',
     importPreview: null,
     importWinnerText: '',
-    importMatchedText: ''
+    importMatchedText: '',
+    leagueSyncView: buildLeagueSyncView(),
+    reviewMatchId: '',
+    reviewPreview: null,
+    reviewWinnerText: '',
+    reviewMatchedText: ''
   },
 
   async onShow() {
@@ -86,18 +96,27 @@ Page({
     const importPreview = this.data.importPreview
       ? this.decorateImportPreview(this.data.importPreview, playerOptions)
       : null;
+    const reviewPreview = this.data.reviewPreview
+      ? this.decorateImportPreview(this.data.reviewPreview, playerOptions)
+      : null;
 
     this.setData({
       isAdmin: Boolean(data.isAdmin || (data.currentPlayer && data.currentPlayer.isAdmin)),
       teams,
-      matches: data.matches || [],
+      matches: (data.matches || []).map((match) => ({
+        ...match,
+        sourceText: matchSourceText(match)
+      })),
       players,
       playerOptions,
+      leagueSyncView: buildLeagueSyncView(data.leagueSync || {}),
       lineupInitialized: true,
       actualRadiantRows: buildLineupRows(radiantIds, 'radiant', playerOptions),
       actualDireRows: buildLineupRows(direIds, 'dire', playerOptions),
       importPreview,
-      importMatchedText: importPreview ? this.importMatchedText(importPreview) : ''
+      importMatchedText: importPreview ? this.importMatchedText(importPreview) : '',
+      reviewPreview,
+      reviewMatchedText: reviewPreview ? this.importMatchedText(reviewPreview) : ''
     });
   },
 
@@ -190,6 +209,102 @@ Page({
       radiant: decorate(preview.radiant, 'radiant', 'badge blue'),
       dire: decorate(preview.dire, 'dire', 'badge red')
     };
+  },
+
+  async runLeagueSyncNow() {
+    try {
+      wx.showLoading({ title: '正在同步联赛' });
+      await requestLeagueSyncNow();
+      wx.hideLoading();
+      await this.loadMatches();
+      wx.showToast({ title: '同步任务已完成', icon: 'success' });
+    } catch (error) {
+      wx.hideLoading();
+      wx.showModal({ title: '同步失败', content: error.message, showCancel: false });
+    }
+  },
+
+  async toggleLeagueSync() {
+    try {
+      const enabled = !this.data.leagueSyncView.enabled;
+      await setLeagueSyncEnabled(enabled);
+      await this.loadMatches();
+      wx.showToast({ title: enabled ? '已恢复自动同步' : '已暂停自动同步', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message, icon: 'none' });
+    }
+  },
+
+  async retryLeagueSyncMatch(event) {
+    const matchId = String(event.currentTarget.dataset.id || '');
+    if (!matchId) return;
+    try {
+      await requestLeagueSyncRetry(matchId);
+      await this.loadMatches();
+      wx.showToast({ title: '已重新加入队列', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message, icon: 'none' });
+    }
+  },
+
+  openLeagueReview(event) {
+    const matchId = String(event.currentTarget.dataset.id || '');
+    const row = (this.data.leagueSyncView.queue || []).find((item) => item.matchId === matchId);
+    if (!row || !row.preview) return;
+    const preview = this.decorateImportPreview(row.preview, this.data.playerOptions);
+    this.setData({
+      reviewMatchId: matchId,
+      reviewPreview: preview,
+      reviewWinnerText: preview.winner,
+      reviewMatchedText: this.importMatchedText(preview)
+    });
+  },
+
+  closeLeagueReview() {
+    this.setData({
+      reviewMatchId: '',
+      reviewPreview: null,
+      reviewWinnerText: '',
+      reviewMatchedText: ''
+    });
+  },
+
+  onReviewPlayerChange(event) {
+    const side = event.currentTarget.dataset.side;
+    const rowIndex = Number(event.currentTarget.dataset.index);
+    const option = this.data.playerOptions[Number(event.detail.value)] || this.data.playerOptions[0];
+    const preview = {
+      ...this.data.reviewPreview,
+      radiant: (this.data.reviewPreview.radiant || []).map((player) => ({ ...player })),
+      dire: (this.data.reviewPreview.dire || []).map((player) => ({ ...player }))
+    };
+    preview[side][rowIndex].selectedPlayerId = option.id;
+    const decorated = this.decorateImportPreview(preview, this.data.playerOptions);
+    this.setData({
+      reviewPreview: decorated,
+      reviewMatchedText: this.importMatchedText(decorated)
+    });
+  },
+
+  async confirmLeagueReview() {
+    if (!this.data.reviewPreview || !this.data.reviewMatchId) return;
+    const radiantPlayerIds = (this.data.reviewPreview.radiant || [])
+      .map((player) => player.selectedPlayerId)
+      .filter(Boolean);
+    const direPlayerIds = (this.data.reviewPreview.dire || [])
+      .map((player) => player.selectedPlayerId)
+      .filter(Boolean);
+    try {
+      wx.showLoading({ title: '正在确认阵容' });
+      await confirmLeagueSyncMatch(this.data.reviewMatchId, radiantPlayerIds, direPlayerIds);
+      wx.hideLoading();
+      this.closeLeagueReview();
+      await this.loadMatches();
+      wx.showToast({ title: '比赛已导入', icon: 'success' });
+    } catch (error) {
+      wx.hideLoading();
+      wx.showModal({ title: '确认失败', content: error.message, showCancel: false });
+    }
   },
 
   onImportMatchIdInput(event) {

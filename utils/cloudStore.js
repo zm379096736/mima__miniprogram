@@ -287,6 +287,56 @@ async function confirmImportedMatch(matchId, radiantPlayerIds, direPlayerIds) {
   return match;
 }
 
+async function runLeagueSyncNow() {
+  if (!canUseCloud()) {
+    throw new Error('自动同步需要启用云开发');
+  }
+  try {
+    const result = await wx.cloud.callFunction({
+      name: 'leagueSync',
+      data: { manual: true }
+    });
+    if (result && result.result && result.result.error) {
+      throw new Error(result.result.error);
+    }
+    clearCache();
+    return result && result.result;
+  } catch (error) {
+    throw new Error(cleanCloudErrorMessage(error));
+  }
+}
+
+async function setLeagueSyncEnabled(enabled) {
+  if (!canUseCloud()) {
+    throw new Error('自动同步需要启用云开发');
+  }
+  const state = await callApi('setLeagueSyncEnabled', { enabled: Boolean(enabled) });
+  clearCache();
+  return state;
+}
+
+async function retryLeagueSyncMatch(matchId) {
+  if (!canUseCloud()) {
+    throw new Error('自动同步需要启用云开发');
+  }
+  const state = await callApi('retryLeagueSyncMatch', { matchId });
+  clearCache();
+  return state;
+}
+
+async function confirmLeagueSyncMatch(matchId, radiantPlayerIds, direPlayerIds) {
+  if (!canUseCloud()) {
+    throw new Error('自动同步需要启用云开发');
+  }
+  const state = await callApi('confirmLeagueSyncMatch', {
+    matchId,
+    radiantPlayerIds,
+    direPlayerIds
+  });
+  clearCache();
+  return state;
+}
+
 async function markTodayPigeons(pigeonIds) {
   const result = await callApi('markPigeons', { pigeonIds });
   clearCache();
@@ -478,6 +528,10 @@ module.exports = {
   deleteMatchRecord,
   previewImportedMatch,
   confirmImportedMatch,
+  runLeagueSyncNow,
+  setLeagueSyncEnabled,
+  retryLeagueSyncMatch,
+  confirmLeagueSyncMatch,
   uploadAvatar,
   uploadAvatarWithSrc,
   getAvatarSrc,

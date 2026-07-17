@@ -5,6 +5,87 @@
     <view class="subtitle">报名和自动分队只作为默认名单，比赛积分以本局实际参赛的 10 位选手为准。</view>
   </view>
 
+  <view wx:if="{{isAdmin}}" class="section panel sync-panel">
+    <view class="section-title">
+      <text>联赛自动同步</text>
+      <text class="badge">{{leagueSyncView.pendingText}}</text>
+    </view>
+    <view class="sync-status-row">
+      <text class="sync-status">{{leagueSyncView.statusText}}</text>
+      <text class="player-meta">上次成功：{{leagueSyncView.lastSuccessText}}</text>
+    </view>
+    <view wx:if="{{leagueSyncView.errorText}}" class="sync-error">{{leagueSyncView.errorText}}</view>
+    <view class="sync-actions">
+      <button class="primary-btn" bindtap="runLeagueSyncNow">立即同步</button>
+      <button class="ghost-btn" bindtap="toggleLeagueSync">{{leagueSyncView.toggleText}}</button>
+    </view>
+
+    <view wx:if="{{leagueSyncView.queue.length}}" class="sync-queue">
+      <view wx:for="{{leagueSyncView.queue}}" wx:key="matchId" class="sync-queue-row">
+        <view class="sync-queue-main">
+          <view class="player-name">比赛 {{item.matchId}}</view>
+          <view class="player-meta">{{item.statusText}} {{item.reasonText}}</view>
+          <view wx:if="{{item.matchedText}}" class="player-meta">{{item.matchedText}}</view>
+          <view wx:if="{{item.errorText}}" class="sync-row-error">{{item.errorText}}</view>
+        </view>
+        <view class="sync-row-actions">
+          <button wx:if="{{item.canRetry}}" class="ghost-btn mini-btn" data-id="{{item.matchId}}" bindtap="retryLeagueSyncMatch">重试</button>
+          <button wx:if="{{item.canReview}}" class="primary-btn mini-btn" data-id="{{item.matchId}}" bindtap="openLeagueReview">确认</button>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{reviewPreview}}" class="review-panel">
+      <view class="section-title">
+        <text>确认比赛 {{reviewMatchId}}</text>
+        <text class="badge">{{reviewMatchedText}}</text>
+      </view>
+      <view class="player-meta">胜方 {{reviewWinnerText}}</view>
+
+      <view class="team-preview">
+        <view class="team-title blue-title">天辉 {{reviewPreview.radiantKills}} 杀</view>
+        <view wx:for="{{reviewPreview.radiant}}" wx:key="rowKey" class="import-player-row">
+          <view class="import-player-head">
+            <view class="player-main">
+              <view class="player-name">{{item.name}}</view>
+              <view class="player-meta">KDA {{item.kills}} / {{item.deaths}} / {{item.assists}}</view>
+            </view>
+            <text class="{{item.matchBadgeClass}}">{{item.matchBadgeText}}</text>
+          </view>
+          <picker range="{{playerOptions}}" range-key="label" value="{{item.pickerIndex}}" data-side="radiant" data-index="{{index}}" bindchange="onReviewPlayerChange">
+            <view class="import-picker">关联选手：{{playerOptions[item.pickerIndex].label}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="team-preview">
+        <view class="team-title red-title">夜魇 {{reviewPreview.direKills}} 杀</view>
+        <view wx:for="{{reviewPreview.dire}}" wx:key="rowKey" class="import-player-row">
+          <view class="import-player-head">
+            <view class="player-main">
+              <view class="player-name">{{item.name}}</view>
+              <view class="player-meta">KDA {{item.kills}} / {{item.deaths}} / {{item.assists}}</view>
+            </view>
+            <text class="{{item.matchBadgeClass}}">{{item.matchBadgeText}}</text>
+          </view>
+          <picker range="{{playerOptions}}" range-key="label" value="{{item.pickerIndex}}" data-side="dire" data-index="{{index}}" bindchange="onReviewPlayerChange">
+            <view class="import-picker">关联选手：{{playerOptions[item.pickerIndex].label}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="sync-actions">
+        <button class="primary-btn" bindtap="confirmLeagueReview">确认阵容并导入</button>
+        <button class="ghost-btn" bindtap="closeLeagueReview">取消</button>
+      </view>
+    </view>
+  </view>
+
+  <view wx:else class="sync-member-strip">
+    <text>{{leagueSyncView.statusText}}</text>
+    <text>{{leagueSyncView.pendingText}}</text>
+  </view>
+
   <view class="section panel">
     <view class="section-title">
       <text>实际参赛阵容</text>
@@ -162,6 +243,7 @@
       <view class="match-main">
         <view class="player-name">{{item.title}}</view>
         <view class="player-meta">胜方 {{item.winner}}</view>
+        <view class="match-source">{{item.sourceText}}</view>
       </view>
       <view class="match-actions">
         <text class="badge">差 {{item.scoreGap}}</text>
