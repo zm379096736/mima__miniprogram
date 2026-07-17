@@ -1,6 +1,7 @@
 const { sortPlayersByPoints } = require('./playerRanking');
 const { normalizeSteamIds } = require('./playerProfile');
 const { matchSourceText } = require('./leagueSyncView');
+const { heroById } = require('./dotaHeroes');
 
 function number(value) {
   const parsed = Number(value);
@@ -34,13 +35,17 @@ function snapshotForPlayer(match, playerId) {
 function buildRecentMatches(rows) {
   return rows.map(({ match, snapshot }) => {
     const won = (match.winnerIds || []).includes(snapshot.playerId);
+    const heroId = number(snapshot.heroId);
+    const hero = heroById(heroId);
     return {
       id: match.id,
       matchId: match.matchId || '',
       won,
       resultText: won ? '胜利' : '失败',
       resultClass: won ? 'result-win' : 'result-loss',
-      heroId: number(snapshot.heroId),
+      heroId,
+      heroName: hero.name,
+      heroImage: hero.imageUrl,
       kdaText: `${number(snapshot.kills)} / ${number(snapshot.deaths)} / ${number(snapshot.assists)}`,
       duration: number(match.duration),
       durationText: durationText(match.duration),
@@ -63,6 +68,8 @@ function buildHeroSummary(rows) {
     .sort((left, right) => right.matches - left.matches || right.wins - left.wins || left.heroId - right.heroId)
     .map((hero) => ({
       ...hero,
+      heroName: heroById(hero.heroId).name,
+      heroImage: heroById(hero.heroId).imageUrl,
       winRateText: `${Math.round(hero.wins * 100 / hero.matches)}%`
     }));
 }

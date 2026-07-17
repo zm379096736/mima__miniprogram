@@ -11,7 +11,7 @@ test('aggregates only stored matches containing the current player', () => {
       {
         id: 'imported-1', participantIds: ['p1', 'p2'], winnerIds: ['p1'], duration: 1800,
         source: 'league-auto',
-        radiant: [{ playerId: 'p1', heroId: 10, kills: 8, deaths: 2, assists: 12, goldPerMin: 600, xpPerMin: 700 }],
+        radiant: [{ playerId: 'p1', heroId: 39, kills: 8, deaths: 2, assists: 12, goldPerMin: 600, xpPerMin: 700 }],
         dire: [{ playerId: 'p2' }]
       },
       {
@@ -34,7 +34,16 @@ test('aggregates only stored matches containing the current player', () => {
   assert.deepEqual(stats.steamIds, ['1', '2']);
   assert.equal(stats.recentMatches[0].resultText, '胜利');
   assert.equal(stats.recentMatches[0].sourceText, '联赛自动导入');
-  assert.deepEqual(stats.heroes, [{ heroId: 10, matches: 1, wins: 1, winRateText: '100%' }]);
+  assert.equal(stats.recentMatches[0].heroName, '痛苦女王');
+  assert.match(stats.recentMatches[0].heroImage, /queenofpain\.png$/);
+  assert.deepEqual(stats.heroes, [{
+    heroId: 39,
+    heroName: '痛苦女王',
+    heroImage: 'https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/queenofpain.png',
+    matches: 1,
+    wins: 1,
+    winRateText: '100%'
+  }]);
 });
 
 test('zero match and missing snapshot statistics remain finite', () => {
