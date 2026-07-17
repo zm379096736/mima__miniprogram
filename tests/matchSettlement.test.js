@@ -18,7 +18,12 @@ function previewFixture(overrides = {}) {
     radiant: Array.from({ length: 5 }, (_, index) => ({
       playerId: `r${index + 1}`,
       name: `Radiant ${index + 1}`,
-      kills: index + 1
+      heroId: 39,
+      kills: index + 1,
+      deaths: 2,
+      assists: 8,
+      goldPerMin: 600 + index,
+      xpPerMin: 700 + index
     })),
     dire: Array.from({ length: 5 }, (_, index) => ({
       playerId: `d${index + 1}`,
@@ -34,6 +39,7 @@ function playersFor(preview) {
     _id: `doc-${index + 1}`,
     id: row.playerId,
     score: 80 + index,
+    avatarUrl: `cloud://env/avatars/${row.playerId}.jpg`,
     points: index,
     matches: 3,
     wins: index % 2
@@ -134,8 +140,18 @@ test('buildSettlement creates rollback-safe imported records and player updates'
     radiantWin: true,
     duration: 1800,
     startTime: 1710000000,
-    radiant: preview.radiant,
-    dire: preview.dire,
+    radiant: preview.radiant.map((row, index) => ({
+      ...row,
+      score: 80 + index,
+      avatarUrl: `cloud://env/avatars/${row.playerId}.jpg`,
+      temporary: false
+    })),
+    dire: preview.dire.map((row, index) => ({
+      ...row,
+      score: 85 + index,
+      avatarUrl: `cloud://env/avatars/${row.playerId}.jpg`,
+      temporary: false
+    })),
     participantIds: ['r1', 'r2', 'r3', 'r4', 'r5', 'd1', 'd2', 'd3', 'd4', 'd5'],
     winnerIds: ['r1', 'r2', 'r3', 'r4', 'r5']
   });
@@ -147,6 +163,11 @@ test('buildSettlement creates rollback-safe imported records and player updates'
   });
   assert.equal(result.playerUpdates.length, 10);
   assert.equal(result.playerUpdates[0].score, undefined);
+  assert.equal(result.match.radiant[0].heroId, 39);
+  assert.equal(result.match.radiant[0].goldPerMin, 600);
+  assert.equal(result.match.radiant[0].xpPerMin, 700);
+  assert.equal(result.match.radiant[0].score, 80);
+  assert.equal(result.match.radiant[0].avatarUrl, 'cloud://env/avatars/r1.jpg');
 });
 
 test('buildSettlement defaults manual imports to the reconciled source metadata', () => {

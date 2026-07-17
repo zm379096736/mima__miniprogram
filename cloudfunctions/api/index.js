@@ -873,6 +873,8 @@ async function recordMatchResult(openid, winnerSide, radiantPlayerIds, direPlaye
     pressureId: '',
     radiant: lineup.radiant,
     dire: lineup.dire,
+    radiantScore: lineup.radiantScore,
+    direScore: lineup.direScore,
     scoreGap: lineup.scoreGap,
     lineupSource: submitted ? 'manual-reconciled' : 'planned-teams',
     plannedParticipantIds: room.teams

@@ -12,14 +12,14 @@ const room = {
     scoreGap: 6,
     radiant: {
       players: [
-        { id: 'r1', name: 'Radiant Carry' },
-        { id: 'r2', name: 'Radiant Mid' }
+        { id: 'r1', name: 'Radiant Carry', score: 82, avatarUrl: 'cloud://env/r1.jpg' },
+        { id: 'r2', name: 'Radiant Mid', score: 78, avatarUrl: 'cloud://env/r2.jpg' }
       ]
     },
     dire: {
       players: [
-        { id: 'd1', name: 'Dire Carry' },
-        { id: 'd2', name: 'Dire Mid' }
+        { id: 'd1', name: 'Dire Carry', score: 80, avatarUrl: 'cloud://env/d1.jpg' },
+        { id: 'd2', name: 'Dire Mid', score: 74, avatarUrl: 'cloud://env/d2.jpg' }
       ]
     }
   }
@@ -55,13 +55,15 @@ test('buildManualMatchRecord stores rollback fields for selected winner side', (
   assert.equal(record.pressureId, '');
   assert.equal(record.scoringVersion, 3);
   assert.deepEqual(record.radiant, [
-    { playerId: 'r1', name: 'Radiant Carry' },
-    { playerId: 'r2', name: 'Radiant Mid' }
+    { playerId: 'r1', name: 'Radiant Carry', score: 82, avatarUrl: 'cloud://env/r1.jpg' },
+    { playerId: 'r2', name: 'Radiant Mid', score: 78, avatarUrl: 'cloud://env/r2.jpg' }
   ]);
   assert.deepEqual(record.dire, [
-    { playerId: 'd1', name: 'Dire Carry' },
-    { playerId: 'd2', name: 'Dire Mid' }
+    { playerId: 'd1', name: 'Dire Carry', score: 80, avatarUrl: 'cloud://env/d1.jpg' },
+    { playerId: 'd2', name: 'Dire Mid', score: 74, avatarUrl: 'cloud://env/d2.jpg' }
   ]);
+  assert.equal(record.radiantScore, 160);
+  assert.equal(record.direScore, 154);
 });
 
 test('manual match helpers use submitted actual lineup instead of planned teams', () => {
@@ -71,6 +73,8 @@ test('manual match helpers use submitted actual lineup instead of planned teams'
     direPlayerIds: ['b1', 'b2', 'b3', 'b4', 'b5'],
     radiant: [{ playerId: 'a1', name: 'Actual Radiant' }],
     dire: [{ playerId: 'b1', name: 'Actual Dire' }],
+    radiantScore: 401,
+    direScore: 392,
     scoreGap: 9
   };
 
@@ -82,5 +86,7 @@ test('manual match helpers use submitted actual lineup instead of planned teams'
   assert.deepEqual(record.radiant, actualLineup.radiant);
   assert.deepEqual(record.dire, actualLineup.dire);
   assert.equal(record.scoreGap, 9);
+  assert.equal(record.radiantScore, 401);
+  assert.equal(record.direScore, 392);
   assert.equal(record.lineupSource, 'manual-reconciled');
 });

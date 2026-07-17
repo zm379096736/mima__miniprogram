@@ -7,6 +7,7 @@ function snapshotPlayer(player) {
     playerId: player.id,
     name: player.name,
     score: Number(player.score || 0),
+    avatarUrl: String(player.avatarUrl || ''),
     temporary: Boolean(player.temporary)
   };
 }
@@ -55,10 +56,8 @@ function applyActualLineupToPreview(preview, radiantIds, direIds, players) {
   const lineup = resolveActualLineup(players, radiantIds, direIds);
   const assign = (apiPlayers, selectedPlayers) => (apiPlayers || []).map((apiPlayer, index) => ({
     ...apiPlayer,
-    playerId: selectedPlayers[index].id,
-    name: selectedPlayers[index].name,
+    ...snapshotPlayer(selectedPlayers[index]),
     matched: true,
-    temporary: Boolean(selectedPlayers[index].temporary)
   }));
 
   return {

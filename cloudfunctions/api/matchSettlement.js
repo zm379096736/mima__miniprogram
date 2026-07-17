@@ -18,6 +18,16 @@ function buildSettlement(preview, players, metadata = {}) {
   const winnerSide = preview.radiantWin ? 'radiant' : 'dire';
   const winnerIds = selectedPlayerIds(winnerSide === 'radiant' ? radiant : dire);
   const winnerIdSet = new Set(winnerIds);
+  const snapshotRows = (rows) => rows.map((row) => {
+    const player = playerById[String(row && row.playerId || '').trim()];
+    return {
+      ...row,
+      name: String(player && player.name || row.name || ''),
+      score: Number(player && player.score || 0),
+      avatarUrl: String(player && player.avatarUrl || ''),
+      temporary: Boolean(player && player.temporary)
+    };
+  });
   const playerUpdates = participantIds.map((id) => {
     const player = playerById[id];
     if (!player) {
@@ -53,8 +63,8 @@ function buildSettlement(preview, players, metadata = {}) {
     radiantWin: Boolean(preview.radiantWin),
     duration: Number(preview.duration || 0),
     startTime: Number(preview.startTime || 0),
-    radiant,
-    dire,
+    radiant: snapshotRows(radiant),
+    dire: snapshotRows(dire),
     participantIds,
     winnerIds
   };

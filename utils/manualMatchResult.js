@@ -24,8 +24,16 @@ function snapshotTeam(team) {
     if (player.score !== undefined) {
       snapshot.score = player.score;
     }
+    if (player.avatarUrl) {
+      snapshot.avatarUrl = player.avatarUrl;
+    }
     return snapshot;
   });
+}
+
+function teamScore(team) {
+  return ((team && team.players) || [])
+    .reduce((total, player) => total + Number(player.score || 0), 0);
 }
 
 function buildManualMatchUpdate(room, winnerSide, actualLineup) {
@@ -69,6 +77,8 @@ function buildManualMatchRecord(room, winnerSide, timestamp, actualLineup) {
     pressureId: update.pressureId,
     radiant: actualLineup ? actualLineup.radiant : snapshotTeam(room.teams.radiant),
     dire: actualLineup ? actualLineup.dire : snapshotTeam(room.teams.dire),
+    radiantScore: actualLineup ? actualLineup.radiantScore : teamScore(room.teams.radiant),
+    direScore: actualLineup ? actualLineup.direScore : teamScore(room.teams.dire),
     scoreGap: actualLineup ? actualLineup.scoreGap : room.teams.scoreGap || 0,
     scoringVersion: 3,
     ...(actualLineup ? {

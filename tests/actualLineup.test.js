@@ -10,6 +10,7 @@ const players = Array.from({ length: 12 }, (_, index) => ({
   id: `p${index + 1}`,
   name: `Player ${index + 1}`,
   score: 70 + index,
+  avatarUrl: `cloud://env/avatars/p${index + 1}.jpg`,
   points: 0
 }));
 
@@ -23,6 +24,11 @@ test('resolveActualLineup accepts ten unique cards regardless of signup state', 
   assert.deepEqual(lineup.participantIds, ['p1', 'p2', 'p3', 'p4', 'p11', 'p6', 'p7', 'p8', 'p9', 'p12']);
   assert.equal(lineup.radiant[4].name, 'Player 11');
   assert.equal(lineup.dire[4].name, 'Player 12');
+  assert.equal(lineup.radiant[0].score, 70);
+  assert.equal(lineup.radiant[0].avatarUrl, 'cloud://env/avatars/p1.jpg');
+  assert.equal(lineup.radiantScore, 70 + 71 + 72 + 73 + 80);
+  assert.equal(lineup.direScore, 75 + 76 + 77 + 78 + 81);
+  assert.equal(lineup.scoreGap, 21);
 });
 
 test('resolveActualLineup rejects incomplete duplicate or missing cards', () => {
@@ -50,7 +56,9 @@ test('applyActualLineupToPreview overrides automatic Steam matching and preserve
       name: 'Wrong',
       kills: index,
       deaths: 1,
-      assists: 2
+      assists: 2,
+      goldPerMin: 600 + index,
+      xpPerMin: 700 + index
     })),
     dire: Array.from({ length: 5 }, (_, index) => ({
       accountId: index + 6,
@@ -73,6 +81,10 @@ test('applyActualLineupToPreview overrides automatic Steam matching and preserve
   assert.equal(reconciled.radiant[0].playerId, 'p1');
   assert.equal(reconciled.radiant[0].name, 'Player 1');
   assert.equal(reconciled.radiant[0].kills, 0);
+  assert.equal(reconciled.radiant[0].goldPerMin, 600);
+  assert.equal(reconciled.radiant[0].xpPerMin, 700);
+  assert.equal(reconciled.radiant[0].score, 70);
+  assert.equal(reconciled.radiant[0].avatarUrl, 'cloud://env/avatars/p1.jpg');
   assert.equal(reconciled.dire[4].playerId, 'p10');
   assert.equal(reconciled.dire[4].kills, 9);
 });
