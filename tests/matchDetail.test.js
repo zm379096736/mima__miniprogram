@@ -3,7 +3,7 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildMatchDetail, needsImportedDetailRepair } = require('../utils/matchDetail');
+const { buildMatchDetail, needsImportedDetailRepair, matchSideKills } = require('../utils/matchDetail');
 
 const players = [
   { id: 'r1', name: '天辉一号' },
@@ -61,6 +61,17 @@ test('legacy imported matches request one detail repair', () => {
   const legacy = { imported: true, radiant: rows.slice(0, 5), dire: rows.slice(5) };
   assert.equal(needsImportedDetailRepair(legacy), true);
   assert.equal(needsImportedDetailRepair({ ...legacy, detailsRefreshedAt: 'done' }), false);
+});
+
+test('legacy imported match totals kills from complete player rows', () => {
+  assert.equal(typeof matchSideKills, 'function');
+  const match = {
+    radiant: [{ kills: 12 }, { kills: 8 }, { kills: 7 }, { kills: 5 }, { kills: 11 }],
+    dire: [{ kills: 9 }, { kills: 6 }, { kills: 4 }, { kills: 7 }, { kills: 7 }]
+  };
+
+  assert.equal(matchSideKills(match, 'radiant'), 43);
+  assert.equal(matchSideKills(match, 'dire'), 33);
 });
 
 test('match detail page renders source GPM and XPM', () => {

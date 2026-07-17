@@ -65,6 +65,8 @@ function buildSettlement(preview, players, metadata = {}) {
     radiantWin: Boolean(preview.radiantWin),
     duration: Number(preview.duration || 0),
     startTime: Number(preview.startTime || 0),
+    radiantKills: Number(preview.radiantKills || 0),
+    direKills: Number(preview.direKills || 0),
     radiant: snapshotRows(radiant),
     dire: snapshotRows(dire),
     participantIds,

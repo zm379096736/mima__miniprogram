@@ -11,6 +11,7 @@ const {
   deleteMatchRecord
 } = require('../../utils/cloudStore');
 const { buildLeagueSyncView, matchSourceText } = require('../../utils/leagueSyncView');
+const { matchSideKills } = require('../../utils/matchDetail');
 const {
   buildTemporaryMergeMessage,
   approvalsFromMerges
@@ -122,6 +123,8 @@ Page({
       matches: (data.matches || []).map((match) => ({
         ...match,
         sourceText: matchSourceText(match),
+        radiantKills: matchSideKills(match, 'radiant'),
+        direKills: matchSideKills(match, 'dire'),
         radiantScore: matchSideScore(match, 'radiant', players),
         direScore: matchSideScore(match, 'dire', players)
       })),

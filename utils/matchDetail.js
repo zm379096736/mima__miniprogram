@@ -44,6 +44,15 @@ function sideScore(match, side, playerById) {
   }, 0);
 }
 
+function matchSideKills(match, side) {
+  const rows = Array.isArray(match && match[side]) ? match[side] : [];
+  if (rows.length && rows.some((row) => Object.prototype.hasOwnProperty.call(row || {}, 'kills'))) {
+    return rows.reduce((total, row) => total + Number(row && row.kills || 0), 0);
+  }
+  const stored = Number(match && match[`${side}Kills`]);
+  return Number.isFinite(stored) ? stored : 0;
+}
+
 function needsImportedDetailRepair(match) {
   if (!match || !match.imported || match.detailsRefreshedAt) return false;
   const rows = (match.radiant || []).concat(match.dire || []);
@@ -109,7 +118,8 @@ function buildMatchDetail(match, players) {
 
 module.exports = {
   buildMatchDetail,
-  needsImportedDetailRepair
+  needsImportedDetailRepair,
+  matchSideKills
 };
 const { matchSourceText } = require('./leagueSyncView');
 

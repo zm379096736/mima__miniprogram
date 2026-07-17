@@ -146,6 +146,8 @@ test('buildSettlement creates rollback-safe imported records and player updates'
     radiantWin: true,
     duration: 1800,
     startTime: 1710000000,
+    radiantKills: 20,
+    direKills: 10,
     radiant: preview.radiant.map((row, index) => ({
       ...row,
       score: 80 + index,
