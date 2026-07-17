@@ -23,7 +23,7 @@ test('formats enabled sync state and pending review rows', () => {
   });
 
   assert.equal(view.statusText, '自动同步已开启');
-  assert.equal(view.pendingText, '待处理 1 场');
+  assert.equal(view.pendingText, '待确认 1 场');
   assert.equal(view.queue[0].reasonText, '有选手尚未关联');
   assert.equal(view.queue[0].statusText, '待管理员确认');
   assert.equal(view.queue[0].matchedText, '已关联 9 / 10');
@@ -32,27 +32,32 @@ test('formats enabled sync state and pending review rows', () => {
   assert.equal(view.queue.length, 1);
 });
 
-test('formats retryable failures without leaking raw upstream details', () => {
+test('sanitizes state errors without leaking raw upstream details', () => {
   const view = buildLeagueSyncView({
     enabled: false,
-    lastError: 'request failed https://api.opendota.com/api/matches/7002?api_key=secret',
-    queuePreview: [{ matchId: '7002', status: 'failed', error: 'socket at /var/user/index.js:10' }]
+    lastError: 'request failed https://api.opendota.com/api/matches/7002?api_key=secret'
   });
 
   assert.equal(view.statusText, '自动同步已暂停');
   assert.equal(view.errorText.includes('http'), false);
-  assert.equal(view.queue[0].canRetry, true);
-  assert.equal(view.queue[0].errorText.includes('/var/user'), false);
 });
 
-test('labels pre-start matches as ignored without actions', () => {
+test('hides every queue status that does not need administrator confirmation', () => {
   const view = buildLeagueSyncView({
-    queuePreview: [{ matchId: '7003', status: 'ignored_before_start' }]
+    pendingCount: 1,
+    queuePreview: [
+      { matchId: '7001', status: 'waiting_data' },
+      { matchId: '7002', status: 'ignored_before_start' },
+      { matchId: '7003', status: 'failed' },
+      { matchId: '7004', status: 'processing' },
+      { matchId: '7005', status: 'discovered' },
+      { matchId: '7006', status: 'imported' },
+      { matchId: '7007', status: 'needs_review', preview: { matchedCount: 8 } }
+    ]
   });
 
-  assert.equal(view.queue[0].statusText, '起算日前，已忽略');
-  assert.equal(view.queue[0].canRetry, false);
-  assert.equal(view.queue[0].canReview, false);
+  assert.deepEqual(view.queue.map((row) => row.matchId), ['7007']);
+  assert.equal(view.queue[0].canReview, true);
 });
 
 test('labels automatic, imported, and manual match sources', () => {

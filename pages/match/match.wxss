@@ -32,6 +32,13 @@
   line-height: 1.5;
 }
 
+.sync-empty {
+  padding: 24rpx 0 4rpx;
+  color: #8f877b;
+  text-align: center;
+  font-size: 23rpx;
+}
+
 .sync-actions {
   gap: 14rpx;
   margin-top: 18rpx;

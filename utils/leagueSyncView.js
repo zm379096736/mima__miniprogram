@@ -69,11 +69,11 @@ function buildLeagueSyncView(state = {}) {
     enabled: state.enabled !== false,
     statusText: state.enabled === false ? '自动同步已暂停' : '自动同步已开启',
     toggleText: state.enabled === false ? '恢复自动同步' : '暂停自动同步',
-    pendingText: `待处理 ${pendingCount} 场`,
+    pendingText: `待确认 ${pendingCount} 场`,
     lastSuccessText: dateText(state.lastSuccessAt),
     errorText: cleanDisplayError(state.lastError),
     queue: queue
-      .filter((row) => row && row.status !== 'imported')
+      .filter((row) => row && row.status === 'needs_review')
       .map(decorateQueueRow)
   };
 }

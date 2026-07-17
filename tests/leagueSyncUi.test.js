@@ -16,6 +16,11 @@ test('match page exposes administrator league sync controls', () => {
   assert.match(wxml, /item\.leagueLabel/);
 });
 
+test('league sync panel shows an empty state when no matches need confirmation', () => {
+  assert.match(wxml, /wx:else[^>]*class="sync-empty"/);
+  assert.match(wxml, /暂无需要确认的比赛/);
+});
+
 test('review queue supports lineup reconciliation and confirmation', () => {
   assert.match(wxml, /reviewPreview/);
   assert.match(wxml, /bindchange="onReviewPlayerChange"/);

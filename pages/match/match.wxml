@@ -35,6 +35,7 @@
         </view>
       </view>
     </view>
+    <view wx:else class="sync-empty">暂无需要确认的比赛</view>
 
     <view wx:if="{{reviewPreview}}" class="review-panel">
       <view class="section-title">
