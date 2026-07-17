@@ -1,5 +1,6 @@
 const { getBootstrap, saveCurrentProfile, uploadAvatarWithSrc } = require('../../utils/cloudStore');
 const { positionText } = require('../../utils/playerProfile');
+const { buildPlayerMatchStats } = require('../../utils/playerMatchStats');
 
 const DEFAULT_AVATAR = '/images/tab.png';
 
@@ -18,6 +19,7 @@ function buildPositionOptions(selected) {
 Page({
   data: {
     player: {},
+    stats: buildPlayerMatchStats(),
     avatarSrc: DEFAULT_AVATAR,
     needPrivacyAuthorization: false,
     positionText: '',
@@ -61,6 +63,7 @@ Page({
       const data = await getBootstrap(true);
       const player = data.currentPlayer;
       const selected = player.preferredPositions || [];
+      const stats = buildPlayerMatchStats(player, data.players || [], data.matches || []);
       this.setData({
         player: {
           ...player,
@@ -69,6 +72,7 @@ Page({
           touch: Number(player.touch || 0),
           pigeon: Number(player.pigeon || 0)
         },
+        stats,
         avatarSrc: player.avatarSrc || DEFAULT_AVATAR,
         positionText: positionText(selected),
         form: {
@@ -124,6 +128,14 @@ Page({
     this.setData({
       'form.preferredPositions': selected,
       positions: buildPositionOptions(selectedNumbers)
+    });
+  },
+
+  openPersonalMatch(event) {
+    const matchId = String(event.currentTarget.dataset.id || '');
+    if (!matchId) return;
+    wx.navigateTo({
+      url: `/pages/match-detail/match-detail?id=${encodeURIComponent(matchId)}`
     });
   },
 

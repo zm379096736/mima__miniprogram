@@ -5,3 +5,22 @@
 .player-row {
   padding: 14rpx 0;
 }
+
+.detail-meta,
+.economy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx 20rpx;
+}
+
+.detail-meta {
+  margin-top: 18rpx;
+  color: #b9ad9a;
+  font-size: 22rpx;
+}
+
+.economy-row {
+  margin-top: 6rpx;
+  color: #d8c78f;
+  font-size: 21rpx;
+}

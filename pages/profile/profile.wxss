@@ -40,6 +40,163 @@
   margin-top: 24rpx;
 }
 
+.stats-panel {
+  border-color: rgba(241, 196, 15, 0.28);
+}
+
+.summary-grid,
+.average-grid {
+  display: grid;
+  gap: 12rpx;
+}
+
+.summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.summary-stat {
+  min-width: 0;
+  padding: 18rpx 12rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.07);
+  border-radius: 8rpx;
+  background: rgba(255, 255, 255, 0.035);
+  text-align: center;
+}
+
+.summary-stat .stat-value {
+  overflow: hidden;
+  font-size: 38rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-line {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 18rpx;
+  padding: 16rpx;
+  color: #fffaf0;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 25rpx;
+  font-weight: 800;
+}
+
+.section-subtitle {
+  margin: 26rpx 0 12rpx;
+  color: #f1c40f;
+  font-size: 24rpx;
+  font-weight: 900;
+}
+
+.average-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.average-grid > view {
+  min-width: 0;
+  text-align: center;
+}
+
+.metric-value,
+.metric-label {
+  display: block;
+}
+
+.metric-value {
+  overflow: hidden;
+  color: #fffaf0;
+  font-size: 27rpx;
+  font-weight: 900;
+  text-overflow: ellipsis;
+}
+
+.metric-label {
+  margin-top: 4rpx;
+  color: #8d98a8;
+  font-size: 19rpx;
+}
+
+.totals-line,
+.inline-empty {
+  margin-top: 14rpx;
+  color: #8d98a8;
+  font-size: 22rpx;
+}
+
+.hero-summary,
+.steam-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.hero-chip,
+.steam-id {
+  padding: 10rpx 14rpx;
+  border: 2rpx solid rgba(241, 196, 15, 0.2);
+  border-radius: 8rpx;
+  color: #d8c78f;
+  background: rgba(241, 196, 15, 0.06);
+  font-size: 21rpx;
+}
+
+.hero-chip text {
+  display: block;
+}
+
+.hero-chip text + text {
+  margin-top: 4rpx;
+  color: #8d98a8;
+  font-size: 19rpx;
+}
+
+.personal-match {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-top: 2rpx solid rgba(255, 255, 255, 0.07);
+}
+
+.personal-match:first-child {
+  border-top: 0;
+}
+
+.result-mark {
+  flex-shrink: 0;
+  width: 70rpx;
+  padding: 8rpx 0;
+  border-radius: 6rpx;
+  text-align: center;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.result-win {
+  color: #071018;
+  background: #f1c40f;
+}
+
+.result-loss {
+  color: #fff;
+  background: #b43843;
+}
+
+.personal-match-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-arrow {
+  flex-shrink: 0;
+  color: #8d98a8;
+  font-size: 42rpx;
+}
+
+.card-meta-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .avatar-editor {
   padding: 18rpx;
   border: 2rpx solid rgba(255, 255, 255, 0.08);

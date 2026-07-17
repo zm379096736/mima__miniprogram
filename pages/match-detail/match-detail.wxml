@@ -6,6 +6,11 @@
       <view class="eyebrow">{{detail.imported ? 'DOTA MATCH' : 'MIMA INHOUSE'}}</view>
       <view class="title">{{detail.title}}</view>
       <view class="subtitle">胜方 {{detail.winner}}</view>
+      <view class="detail-meta">
+        <text>{{detail.sourceText}}</text>
+        <text>{{detail.startTimeText}}</text>
+        <text>时长 {{detail.durationText}}</text>
+      </view>
     </view>
 
     <view class="section team-card radiant">
@@ -17,6 +22,10 @@
         <view class="player-main">
           <view class="player-name">{{item.name}}</view>
           <view wx:if="{{detail.imported}}" class="player-meta">K / D / A：{{item.kdaText}}</view>
+          <view wx:if="{{detail.imported}}" class="economy-row">
+            <text>GPM {{item.goldPerMin}}</text>
+            <text>XPM {{item.xpPerMin}}</text>
+          </view>
           <view wx:elif="{{item.assignedPosition}}" class="player-meta">{{item.assignedPosition}}号位 / 自评分 {{item.score}}</view>
         </view>
         <text class="badge blue">天辉</text>
@@ -32,6 +41,10 @@
         <view class="player-main">
           <view class="player-name">{{item.name}}</view>
           <view wx:if="{{detail.imported}}" class="player-meta">K / D / A：{{item.kdaText}}</view>
+          <view wx:if="{{detail.imported}}" class="economy-row">
+            <text>GPM {{item.goldPerMin}}</text>
+            <text>XPM {{item.xpPerMin}}</text>
+          </view>
           <view wx:elif="{{item.assignedPosition}}" class="player-meta">{{item.assignedPosition}}号位 / 自评分 {{item.score}}</view>
         </view>
         <text class="badge red">夜魇</text>

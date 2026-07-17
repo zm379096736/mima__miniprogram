@@ -26,18 +26,34 @@ test('manual match detail reconstructs both sides from participant snapshots', (
   assert.equal(detail.imported, false);
 });
 
-test('imported match detail preserves KDA information', () => {
+test('imported match detail preserves KDA economy source and timing information', () => {
   const detail = buildMatchDetail({
     id: 'imported-1',
     imported: true,
+    source: 'league-auto',
     winner: '天辉',
-    radiant: [{ playerId: 'r1', name: '天辉一号', kills: 10, deaths: 2, assists: 8 }],
+    duration: 3010,
+    startTime: 1784200000,
+    radiant: [{ playerId: 'r1', name: '天辉一号', kills: 10, deaths: 2, assists: 8, goldPerMin: 640, xpPerMin: 720 }],
     dire: [{ playerId: 'd1', name: '夜魇一号', kills: 2, deaths: 10, assists: 3 }]
   }, players);
 
   assert.equal(detail.radiant[0].kdaText, '10 / 2 / 8');
   assert.equal(detail.dire[0].kdaText, '2 / 10 / 3');
+  assert.equal(detail.radiant[0].goldPerMin, 640);
+  assert.equal(detail.radiant[0].xpPerMin, 720);
+  assert.equal(detail.sourceText, '联赛自动导入');
+  assert.equal(detail.durationText, '50:10');
+  assert.match(detail.startTimeText, /^\d{4}-\d{2}-\d{2} /);
   assert.equal(detail.imported, true);
+});
+
+test('match detail page renders source GPM and XPM', () => {
+  const view = fs.readFileSync(path.join(__dirname, '../pages/match-detail/match-detail.wxml'), 'utf8');
+  assert.match(view, /detail\.sourceText/);
+  assert.match(view, /detail\.durationText/);
+  assert.match(view, /item\.goldPerMin/);
+  assert.match(view, /item\.xpPerMin/);
 });
 
 test('history cards navigate to the match detail page', () => {

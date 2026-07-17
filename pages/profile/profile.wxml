@@ -7,34 +7,79 @@
     <view class="card-score">{{player.points}} 积分</view>
   </view>
 
-  <view class="section grid-3">
-    <view class="stat">
-      <view class="stat-value">{{player.score}}</view>
-      <view class="stat-label">自评分</view>
+  <view class="section panel stats-panel">
+    <view class="section-title">个人内战数据</view>
+    <view class="summary-grid">
+      <view class="summary-stat">
+        <view class="stat-value">#{{stats.rank}}</view>
+        <view class="stat-label">积分排名</view>
+      </view>
+      <view class="summary-stat">
+        <view class="stat-value">{{stats.points}}</view>
+        <view class="stat-label">积分</view>
+      </view>
+      <view class="summary-stat">
+        <view class="stat-value">{{stats.matches}}</view>
+        <view class="stat-label">内战</view>
+      </view>
+      <view class="summary-stat">
+        <view class="stat-value">{{stats.winRateText}}</view>
+        <view class="stat-label">胜率</view>
+      </view>
     </view>
-    <view class="stat">
-      <view class="stat-value">{{player.mvp}}</view>
-      <view class="stat-label">MVP</view>
+
+    <view class="record-line">
+      <text>胜 {{stats.wins}}</text>
+      <text>负 {{stats.losses}}</text>
+      <text>KDA {{stats.kdaText}}</text>
     </view>
-    <view class="stat">
-      <view class="stat-value">{{player.touch}}</view>
-      <view class="stat-label">大触</view>
+
+    <view class="section-subtitle">场均表现</view>
+    <view class="average-grid">
+      <view><text class="metric-value">{{stats.averageKills}}</text><text class="metric-label">击杀</text></view>
+      <view><text class="metric-value">{{stats.averageDeaths}}</text><text class="metric-label">死亡</text></view>
+      <view><text class="metric-value">{{stats.averageAssists}}</text><text class="metric-label">助攻</text></view>
+      <view><text class="metric-value">{{stats.averageGpm}}</text><text class="metric-label">GPM</text></view>
+      <view><text class="metric-value">{{stats.averageXpm}}</text><text class="metric-label">XPM</text></view>
     </view>
+    <view class="totals-line">累计 K / D / A：{{stats.totals.kills}} / {{stats.totals.deaths}} / {{stats.totals.assists}}</view>
+
+    <view class="section-subtitle">近 20 场英雄</view>
+    <view wx:if="{{stats.heroes.length}}" class="hero-summary">
+      <view wx:for="{{stats.heroes}}" wx:key="heroId" class="hero-chip">
+        <text>英雄 {{item.heroId}}</text>
+        <text>{{item.matches}} 场 · {{item.winRateText}}</text>
+      </view>
+    </view>
+    <view wx:else class="inline-empty">暂无英雄数据</view>
+
+    <view class="section-subtitle">已绑定 Steam ID</view>
+    <view wx:if="{{stats.steamIds.length}}" class="steam-list">
+      <text wx:for="{{stats.steamIds}}" wx:key="*this" class="steam-id">{{item}}</text>
+    </view>
+    <view wx:else class="inline-empty">尚未绑定</view>
   </view>
 
-  <view class="section grid-3">
-    <view class="stat">
-      <view class="stat-value">{{player.wins}}</view>
-      <view class="stat-label">胜场</view>
+  <view class="section panel">
+    <view class="section-title">最近比赛</view>
+    <view wx:if="{{stats.recentMatches.length}}">
+      <view wx:for="{{stats.recentMatches}}" wx:key="id" class="personal-match" data-id="{{item.id}}" bindtap="openPersonalMatch">
+        <view class="result-mark {{item.resultClass}}">{{item.resultText}}</view>
+        <view class="personal-match-main">
+          <view class="player-name">英雄 {{item.heroId}} · {{item.kdaText}}</view>
+          <view class="player-meta">{{item.sourceText}} · {{item.durationText}}</view>
+        </view>
+        <text class="match-arrow">›</text>
+      </view>
     </view>
-    <view class="stat">
-      <view class="stat-value">{{player.matches}}</view>
-      <view class="stat-label">场次</view>
-    </view>
-    <view class="stat">
-      <view class="stat-value">{{player.pigeon}}</view>
-      <view class="stat-label">鸽子</view>
-    </view>
+    <view wx:else class="inline-empty">暂无个人比赛记录</view>
+  </view>
+
+  <view class="section grid-4 card-meta-grid">
+    <view class="stat"><view class="stat-value">{{player.score}}</view><view class="stat-label">自评分</view></view>
+    <view class="stat"><view class="stat-value">{{player.mvp}}</view><view class="stat-label">MVP</view></view>
+    <view class="stat"><view class="stat-value">{{player.touch}}</view><view class="stat-label">大触</view></view>
+    <view class="stat"><view class="stat-value">{{player.pigeon}}</view><view class="stat-label">鸽子</view></view>
   </view>
 
   <view class="section panel">
