@@ -30,7 +30,12 @@
   "appid": "wxd70e549df125078d",
   "projectname": "mima-dota2-miniprogram",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "assets"
+      }
+    ],
     "include": []
   },
   "condition": {},
