@@ -61,4 +61,58 @@ function buildSettlement(preview, players, metadata = {}) {
   return { match, playerUpdates };
 }
 
-module.exports = { buildSettlement };
+function documentData(result) {
+  return result && result.data ? result.data : null;
+}
+
+async function settleImportedMatch(preview, metadata = {}, dependencies = {}) {
+  const db = dependencies.db;
+  if (!db) {
+    throw new Error('Imported match settlement requires a database');
+  }
+  const players = metadata.players || (await db.collection('players').limit(100).get()).data;
+  const settlement = buildSettlement(preview, players, metadata);
+  const plannedParticipantIds = Array.isArray(metadata.plannedParticipantIds)
+    ? metadata.plannedParticipantIds
+    : [];
+  const persist = async (writer) => {
+    const matchRef = writer.collection('matches').doc(settlement.match.id);
+    if (documentData(await matchRef.get())) {
+      throw new Error('\u8fd9\u573a\u6bd4\u8d5b\u5df2\u7ecf\u5bfc\u5165\u8fc7');
+    }
+
+    for (const update of settlement.playerUpdates) {
+      const playerRef = writer.collection('players').doc(update._id);
+      const player = documentData(await playerRef.get());
+      if (!player) {
+        throw new Error('Imported match contains a player that does not exist');
+      }
+      const won = settlement.match.winnerIds.includes(update.id);
+      await playerRef.update({
+        data: {
+          points: Number(player.points || 0) + (won ? 2 : -1),
+          matches: Number(player.matches || 0) + 1,
+          wins: Number(player.wins || 0) + (won ? 1 : 0),
+          updatedAt: db.serverDate()
+        }
+      });
+    }
+
+    const match = {
+      ...settlement.match,
+      plannedParticipantIds,
+      createdAt: db.serverDate()
+    };
+    await matchRef.set({ data: match });
+    return match;
+  };
+
+  if (typeof db.runTransaction === 'function') {
+    return db.runTransaction(async (transaction) => persist(transaction));
+  }
+
+  // Unit-test stubs may not implement CloudBase transactions.
+  return persist(db);
+}
+
+module.exports = { buildSettlement, settleImportedMatch };

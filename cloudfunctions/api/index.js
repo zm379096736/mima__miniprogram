@@ -7,7 +7,7 @@ const { removeSignupFromRoom } = require('./adminSignup');
 const { swapTeamPlayers } = require('./teamEditor');
 const { loadMatchWithFallback } = require('./matchSources');
 const { requestJson } = require('./httpJson');
-const { buildSettlement } = require('./matchSettlement');
+const { settleImportedMatch } = require('./matchSettlement');
 const {
   buildTemporaryPlayer,
   findClaimableTemporaryPlayer,
@@ -897,44 +897,6 @@ async function previewImportedMatch(matchId) {
   return buildImportedMatchPreview(apiMatch, players);
 }
 
-async function settleImportedMatch(preview, metadata = {}) {
-  const players = metadata.players || (await db.collection('players').limit(100).get()).data;
-  const settlement = buildSettlement(preview, players, metadata);
-  const plannedParticipantIds = Array.isArray(metadata.plannedParticipantIds)
-    ? metadata.plannedParticipantIds
-    : [];
-  const persist = async (writer) => {
-    const existed = await writer.collection('matches').where({ id: settlement.match.id }).limit(1).get();
-    if (existed.data[0]) {
-      throw new Error('\u8fd9\u573a\u6bd4\u8d5b\u5df2\u7ecf\u5bfc\u5165\u8fc7');
-    }
-    for (const update of settlement.playerUpdates) {
-      await writer.collection('players').doc(update._id).update({
-        data: {
-          points: update.points,
-          matches: update.matches,
-          wins: update.wins,
-          updatedAt: db.serverDate()
-        }
-      });
-    }
-    const match = {
-      ...settlement.match,
-      plannedParticipantIds,
-      createdAt: db.serverDate()
-    };
-    await writer.collection('matches').add({ data: match });
-    return match;
-  };
-
-  if (typeof db.runTransaction === 'function') {
-    return db.runTransaction(async (transaction) => persist(transaction));
-  }
-
-  // Unit-test stubs may not implement CloudBase transactions.
-  return persist(db);
-}
-
 async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlayerIds) {
   assertAdmin(openid, '只有管理员可以导入比赛结果');
   const preview = await previewImportedMatch(matchId);
@@ -953,7 +915,7 @@ async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlaye
     plannedParticipantIds: room.teams
       ? teamIds(room.teams.radiant).concat(teamIds(room.teams.dire))
       : []
-  });
+  }, { db });
 }
 
 async function deleteMatchRecord(matchId) {

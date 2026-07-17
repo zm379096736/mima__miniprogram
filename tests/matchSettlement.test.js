@@ -1,7 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildSettlement } = require('../cloudfunctions/api/matchSettlement');
+const {
+  buildSettlement,
+  settleImportedMatch
+} = require('../cloudfunctions/api/matchSettlement');
 
 function previewFixture(overrides = {}) {
   return {
@@ -35,6 +38,69 @@ function playersFor(preview) {
     matches: 3,
     wins: index % 2
   }));
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createTransactionDb(state, options = {}) {
+  function writerFor(target) {
+    return {
+      collection(name) {
+        return {
+          doc(id) {
+            return {
+              async get() {
+                return { data: target[name][id] ? clone(target[name][id]) : null };
+              },
+              async update({ data }) {
+                if (options.failPlayerId === target[name][id].id) {
+                  throw new Error('simulated player write failure');
+                }
+                Object.assign(target[name][id], clone(data));
+              },
+              async set({ data }) {
+                target[name][id] = { _id: id, ...clone(data) };
+              }
+            };
+          },
+          limit() {
+            return {
+              async get() {
+                return { data: Object.values(target[name]).map(clone) };
+              }
+            };
+          }
+        };
+      }
+    };
+  }
+
+  const db = writerFor(state);
+  db.serverDate = () => 'server-date';
+  db.runTransaction = async (callback) => {
+    const working = clone(state);
+    const result = await callback(writerFor(working));
+    state.players = working.players;
+    state.matches = working.matches;
+    return result;
+  };
+  return db;
+}
+
+function transactionState(preview, overrides = {}) {
+  const players = playersFor(preview);
+  return {
+    players: Object.fromEntries(players.map((player) => [player._id, player])),
+    matches: {},
+    ...overrides
+  };
+}
+
+function executeSettlement(preview, metadata, db) {
+  assert.equal(typeof settleImportedMatch, 'function');
+  return settleImportedMatch(preview, metadata, { db });
 }
 
 test('buildSettlement creates rollback-safe imported records and player updates', () => {
@@ -103,4 +169,65 @@ test('buildSettlement rejects incomplete duplicate and missing player lineups', 
   const missingPlayerPreview = previewFixture();
   const players = playersFor(missingPlayerPreview).filter((player) => player.id !== 'd5');
   assert.throws(() => buildSettlement(missingPlayerPreview, players), /does not exist/);
+});
+
+test('settleImportedMatch rejects a deterministic duplicate without player changes', async () => {
+  const preview = previewFixture();
+  const state = transactionState(preview, {
+    matches: {
+      'imported-7002': { _id: 'imported-7002', id: 'imported-7002' }
+    }
+  });
+  const before = clone(state);
+
+  await assert.rejects(
+    executeSettlement(preview, { players: playersFor(preview) }, createTransactionDb(state)),
+    new RegExp('\u5df2\u7ecf\u5bfc\u5165')
+  );
+  assert.deepEqual(state, before);
+});
+
+test('settleImportedMatch aborts every write when a transaction player write fails', async () => {
+  const preview = previewFixture();
+  const state = transactionState(preview);
+  const before = clone(state);
+
+  await assert.rejects(
+    executeSettlement(
+      preview,
+      { players: playersFor(preview) },
+      createTransactionDb(state, { failPlayerId: 'd1' })
+    ),
+    /simulated player write failure/
+  );
+  assert.deepEqual(state, before);
+});
+
+test('settleImportedMatch calculates totals from transaction player snapshots', async () => {
+  const preview = previewFixture();
+  const stalePlayers = playersFor(preview);
+  const state = transactionState(preview);
+  state.players['doc-1'] = {
+    ...state.players['doc-1'],
+    points: 10,
+    matches: 7,
+    wins: 2
+  };
+
+  const match = await executeSettlement(
+    preview,
+    { players: stalePlayers },
+    createTransactionDb(state)
+  );
+
+  assert.equal(match._id, undefined);
+  assert.deepEqual(state.players['doc-1'], {
+    ...state.players['doc-1'],
+    points: 12,
+    matches: 8,
+    wins: 3,
+    updatedAt: 'server-date'
+  });
+  assert.equal(state.matches['imported-7002']._id, 'imported-7002');
+  assert.equal(state.matches['imported-7002'].createdAt, 'server-date');
 });

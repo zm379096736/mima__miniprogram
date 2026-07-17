@@ -50,22 +50,14 @@ test('cloud imported confirmation delegates to centralized settlement', () => {
     cloudSource.indexOf('async function deleteMatchRecord')
   );
 
-  assert.match(cloudSource, /require\('\.\/matchSettlement'\)/);
+  assert.match(cloudSource, /const \{ settleImportedMatch \} = require\('\.\/matchSettlement'\)/);
   assert.match(confirmBlock, /return settleImportedMatch\(reconciled, \{/);
   assert.match(confirmBlock, /source: 'manual-import'/);
+  assert.match(confirmBlock, /\}, \{ db \}\);/);
 });
 
 test('cloud imported settlement uses a transaction with a narrow test fallback', () => {
-  const settlementBlock = cloudSource.slice(
-    cloudSource.indexOf('async function settleImportedMatch'),
-    cloudSource.indexOf('async function confirmImportedMatch')
-  );
-
-  assert.match(settlementBlock, /typeof db\.runTransaction === 'function'/);
-  assert.match(settlementBlock, /db\.runTransaction\(async \(transaction\) =>/);
-  assert.match(settlementBlock, /persist\(transaction\)/);
-  assert.match(settlementBlock, /writer\.collection\('matches'\)/);
-  assert.match(settlementBlock, /writer\.collection\('players'\)/);
+  assert.doesNotMatch(cloudSource, /async function settleImportedMatch/);
 });
 
 test('cloud result actions accept ordered actual lineups', () => {
