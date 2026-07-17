@@ -71,6 +71,7 @@ test('buildMatchPreview maps OpenDota players to local player cards', () => {
     match_id: 7001,
     radiant_win: true,
     duration: 1800,
+    start_time: 1710000000,
     players: [
       { account_id: 1, player_slot: 0, hero_id: 10, kills: 8, deaths: 1, assists: 12, gold_per_min: 600, xp_per_min: 700 },
       { account_id: 2, hero_id: 11, kills: 5, deaths: 2, assists: 9 },
@@ -90,6 +91,7 @@ test('buildMatchPreview maps OpenDota players to local player cards', () => {
 
   assert.equal(preview.winner, '天辉');
   assert.equal(preview.matchedCount, 2);
+  assert.equal(preview.startTime, 1710000000);
   assert.equal(preview.radiant[0].name, 'Carry');
   assert.equal(preview.dire[0].name, 'Enemy Carry');
   assert.deepEqual(preview.radiant[0], {

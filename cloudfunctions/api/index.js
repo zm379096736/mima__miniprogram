@@ -7,6 +7,7 @@ const { removeSignupFromRoom } = require('./adminSignup');
 const { swapTeamPlayers } = require('./teamEditor');
 const { loadMatchWithFallback } = require('./matchSources');
 const { requestJson } = require('./httpJson');
+const { buildSettlement } = require('./matchSettlement');
 const {
   buildTemporaryPlayer,
   findClaimableTemporaryPlayer,
@@ -183,33 +184,12 @@ function buildImportedMatchPreview(apiMatch, players) {
     radiantWin,
     winner: radiantWin ? '\u5929\u8f89' : '\u591c\u9b47',
     duration: Number(apiMatch.duration || 0),
+    startTime: Number(apiMatch.start_time || 0),
     radiantKills,
     direKills,
     radiant,
     dire,
     matchedCount: decorated.filter((player) => player.matched).length
-  };
-}
-
-function importedMatchToRecord(preview) {
-  const participantIds = preview.radiant.concat(preview.dire).map((player) => player.playerId).filter(Boolean);
-  const winnerIds = (preview.radiantWin ? preview.radiant : preview.dire).map((player) => player.playerId).filter(Boolean);
-  return {
-    id: `imported-${preview.matchId}`,
-    matchId: preview.matchId,
-    title: `Dota \u6bd4\u8d5b ${preview.matchId}`,
-    winner: preview.winner,
-    mvp: '\u5f85\u6295\u7968',
-    scoreGap: Math.abs(Number(preview.radiantKills || 0) - Number(preview.direKills || 0)),
-    scoringVersion: 3,
-    imported: true,
-    radiantWin: Boolean(preview.radiantWin),
-    radiant: preview.radiant,
-    dire: preview.dire,
-    participantIds,
-    winnerIds,
-    lineupSource: 'import-reconciled',
-    createdAt: db.serverDate()
   };
 }
 
@@ -917,14 +897,47 @@ async function previewImportedMatch(matchId) {
   return buildImportedMatchPreview(apiMatch, players);
 }
 
+async function settleImportedMatch(preview, metadata = {}) {
+  const players = metadata.players || (await db.collection('players').limit(100).get()).data;
+  const settlement = buildSettlement(preview, players, metadata);
+  const plannedParticipantIds = Array.isArray(metadata.plannedParticipantIds)
+    ? metadata.plannedParticipantIds
+    : [];
+  const persist = async (writer) => {
+    const existed = await writer.collection('matches').where({ id: settlement.match.id }).limit(1).get();
+    if (existed.data[0]) {
+      throw new Error('\u8fd9\u573a\u6bd4\u8d5b\u5df2\u7ecf\u5bfc\u5165\u8fc7');
+    }
+    for (const update of settlement.playerUpdates) {
+      await writer.collection('players').doc(update._id).update({
+        data: {
+          points: update.points,
+          matches: update.matches,
+          wins: update.wins,
+          updatedAt: db.serverDate()
+        }
+      });
+    }
+    const match = {
+      ...settlement.match,
+      plannedParticipantIds,
+      createdAt: db.serverDate()
+    };
+    await writer.collection('matches').add({ data: match });
+    return match;
+  };
+
+  if (typeof db.runTransaction === 'function') {
+    return db.runTransaction(async (transaction) => persist(transaction));
+  }
+
+  // Unit-test stubs may not implement CloudBase transactions.
+  return persist(db);
+}
+
 async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlayerIds) {
   assertAdmin(openid, '只有管理员可以导入比赛结果');
   const preview = await previewImportedMatch(matchId);
-  const existed = await getById('matches', `imported-${preview.matchId}`);
-  if (existed) {
-    throw new Error('\u8fd9\u573a\u6bd4\u8d5b\u5df2\u7ecf\u5bfc\u5165\u8fc7');
-  }
-
   const players = (await db.collection('players').limit(100).get()).data;
   const selectedRadiantIds = Array.isArray(radiantPlayerIds) && radiantPlayerIds.length
     ? radiantPlayerIds
@@ -933,31 +946,14 @@ async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlaye
     ? direPlayerIds
     : preview.dire.map((player) => player.playerId);
   const reconciled = applyActualLineupToPreview(preview, selectedRadiantIds, selectedDireIds, players);
-  const winnerIds = new Set((reconciled.radiantWin ? reconciled.radiant : reconciled.dire).map((player) => player.playerId));
-  const participantIds = new Set(reconciled.radiant.concat(reconciled.dire).map((player) => player.playerId));
-
-  for (const player of players) {
-    if (!participantIds.has(player.id)) {
-      continue;
-    }
-    const data = {
-      matches: Number(player.matches || 0) + 1,
-      points: scoreAfterMatch(player.points, winnerIds.has(player.id)),
-      updatedAt: db.serverDate()
-    };
-    if (winnerIds.has(player.id)) {
-      data.wins = Number(player.wins || 0) + 1;
-    }
-    await db.collection('players').doc(player._id).update({ data });
-  }
-
-  const match = importedMatchToRecord(reconciled);
   const room = await getRoomDoc();
-  match.plannedParticipantIds = room.teams
-    ? teamIds(room.teams.radiant).concat(teamIds(room.teams.dire))
-    : [];
-  await db.collection('matches').add({ data: match });
-  return match;
+  return settleImportedMatch(reconciled, {
+    source: 'manual-import',
+    players,
+    plannedParticipantIds: room.teams
+      ? teamIds(room.teams.radiant).concat(teamIds(room.teams.dire))
+      : []
+  });
 }
 
 async function deleteMatchRecord(matchId) {

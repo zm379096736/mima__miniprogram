@@ -98,6 +98,7 @@ function buildMatchPreview(apiMatch, players) {
     radiantWin,
     winner: radiantWin ? '\u5929\u8f89' : '\u591c\u9b47',
     duration: Number(apiMatch.duration || 0),
+    startTime: Number(apiMatch.start_time || 0),
     radiantKills,
     direKills,
     radiant,

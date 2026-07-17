@@ -44,6 +44,30 @@ test('cloud imported match confirmation requires administrator permission', () =
   assert.match(cloudSource, /confirmImportedMatch\(openid, event\.matchId/);
 });
 
+test('cloud imported confirmation delegates to centralized settlement', () => {
+  const confirmBlock = cloudSource.slice(
+    cloudSource.indexOf('async function confirmImportedMatch'),
+    cloudSource.indexOf('async function deleteMatchRecord')
+  );
+
+  assert.match(cloudSource, /require\('\.\/matchSettlement'\)/);
+  assert.match(confirmBlock, /return settleImportedMatch\(reconciled, \{/);
+  assert.match(confirmBlock, /source: 'manual-import'/);
+});
+
+test('cloud imported settlement uses a transaction with a narrow test fallback', () => {
+  const settlementBlock = cloudSource.slice(
+    cloudSource.indexOf('async function settleImportedMatch'),
+    cloudSource.indexOf('async function confirmImportedMatch')
+  );
+
+  assert.match(settlementBlock, /typeof db\.runTransaction === 'function'/);
+  assert.match(settlementBlock, /db\.runTransaction\(async \(transaction\) =>/);
+  assert.match(settlementBlock, /persist\(transaction\)/);
+  assert.match(settlementBlock, /writer\.collection\('matches'\)/);
+  assert.match(settlementBlock, /writer\.collection\('players'\)/);
+});
+
 test('cloud result actions accept ordered actual lineups', () => {
   assert.match(cloudSource, /event\.radiantPlayerIds/);
   assert.match(cloudSource, /event\.direPlayerIds/);
