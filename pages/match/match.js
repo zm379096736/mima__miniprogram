@@ -11,6 +11,10 @@ const {
   deleteMatchRecord
 } = require('../../utils/cloudStore');
 const { buildLeagueSyncView, matchSourceText } = require('../../utils/leagueSyncView');
+const {
+  buildTemporaryMergeMessage,
+  approvalsFromMerges
+} = require('../../utils/temporaryMergePrompt');
 
 function buildPlayerOptions(players) {
   const selectable = (players || [])
@@ -300,7 +304,23 @@ Page({
     });
   },
 
+  async requestTemporaryMergeApprovals(merges) {
+    return new Promise((resolve) => {
+      wx.showModal({
+        title: '合并临时选手',
+        content: buildTemporaryMergeMessage(merges),
+        confirmText: '确认合并',
+        success: (result) => resolve(result.confirm ? approvalsFromMerges(merges) : null),
+        fail: () => resolve(null)
+      });
+    });
+  },
+
   async confirmLeagueReview() {
+    return this.submitLeagueReview([]);
+  },
+
+  async submitLeagueReview(mergeApprovals) {
     if (!this.data.reviewPreview || !this.data.reviewMatchId) return;
     const radiantPlayerIds = (this.data.reviewPreview.radiant || [])
       .map((player) => player.selectedPlayerId)
@@ -310,8 +330,18 @@ Page({
       .filter(Boolean);
     try {
       wx.showLoading({ title: '正在确认阵容' });
-      await confirmLeagueSyncMatch(this.data.reviewMatchId, radiantPlayerIds, direPlayerIds);
+      const result = await confirmLeagueSyncMatch(
+        this.data.reviewMatchId,
+        radiantPlayerIds,
+        direPlayerIds,
+        mergeApprovals
+      );
       wx.hideLoading();
+      if (result && result.status === 'merge_required') {
+        const approvals = await this.requestTemporaryMergeApprovals(result.merges);
+        if (approvals) await this.submitLeagueReview(approvals);
+        return;
+      }
       this.closeLeagueReview();
       await this.loadMatches();
       wx.showToast({ title: '比赛已导入', icon: 'success' });
@@ -469,10 +499,24 @@ Page({
       playerId: player.selectedPlayerId
     })));
 
+    return this.submitImportedMatch(radiantPlayerIds, direPlayerIds, []);
+  },
+
+  async submitImportedMatch(radiantPlayerIds, direPlayerIds, mergeApprovals) {
     try {
       wx.showLoading({ title: '导入战绩中' });
-      await saveImportedMatch(this.data.importPreview.matchId, radiantPlayerIds, direPlayerIds);
+      const result = await saveImportedMatch(
+        this.data.importPreview.matchId,
+        radiantPlayerIds,
+        direPlayerIds,
+        mergeApprovals
+      );
       wx.hideLoading();
+      if (result && result.status === 'merge_required') {
+        const approvals = await this.requestTemporaryMergeApprovals(result.merges);
+        if (approvals) await this.submitImportedMatch(radiantPlayerIds, direPlayerIds, approvals);
+        return;
+      }
       this.setData({ importPreview: null, importMatchId: '' });
       await this.loadMatches();
       wx.showToast({ title: '比赛已导入', icon: 'success' });

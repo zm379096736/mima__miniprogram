@@ -26,6 +26,8 @@ test('review queue supports lineup reconciliation and confirmation', () => {
   assert.match(wxml, /bindchange="onReviewPlayerChange"/);
   assert.match(wxml, /bindtap="confirmLeagueReview"/);
   assert.match(js, /confirmLeagueSyncMatch\([\s\S]*radiantPlayerIds[\s\S]*direPlayerIds/);
+  assert.match(js, /buildTemporaryMergeMessage/);
+  assert.match(js, /approvalsFromMerges/);
 });
 
 test('cloud store provides remote-only league sync actions and clears bootstrap cache', () => {
@@ -33,7 +35,7 @@ test('cloud store provides remote-only league sync actions and clears bootstrap 
   assert.match(store, /name:\s*'leagueSync'/);
   assert.match(store, /async function setLeagueSyncEnabled\(enabled\)/);
   assert.match(store, /async function retryLeagueSyncMatch\(matchId\)/);
-  assert.match(store, /async function confirmLeagueSyncMatch\(matchId, radiantPlayerIds, direPlayerIds\)/);
+  assert.match(store, /async function confirmLeagueSyncMatch\(matchId, radiantPlayerIds, direPlayerIds, mergeApprovals = \[\]\)/);
   assert.match(store, /自动同步需要启用云开发/);
 });
 

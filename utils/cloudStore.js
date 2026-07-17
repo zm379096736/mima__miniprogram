@@ -308,9 +308,11 @@ async function previewImportedMatch(matchId) {
   return callApi('previewImportedMatch', { matchId });
 }
 
-async function confirmImportedMatch(matchId, radiantPlayerIds, direPlayerIds) {
-  const match = await callApi('confirmImportedMatch', { matchId, radiantPlayerIds, direPlayerIds });
-  clearCache();
+async function confirmImportedMatch(matchId, radiantPlayerIds, direPlayerIds, mergeApprovals = []) {
+  const match = await callApi('confirmImportedMatch', {
+    matchId, radiantPlayerIds, direPlayerIds, mergeApprovals
+  });
+  if (!match || match.status !== 'merge_required') clearCache();
   return match;
 }
 
@@ -357,16 +359,17 @@ async function retryLeagueSyncMatch(matchId) {
   return state;
 }
 
-async function confirmLeagueSyncMatch(matchId, radiantPlayerIds, direPlayerIds) {
+async function confirmLeagueSyncMatch(matchId, radiantPlayerIds, direPlayerIds, mergeApprovals = []) {
   if (!canUseCloud()) {
     throw new Error('自动同步需要启用云开发');
   }
   const state = await callApi('confirmLeagueSyncMatch', {
     matchId,
     radiantPlayerIds,
-    direPlayerIds
+    direPlayerIds,
+    mergeApprovals
   });
-  clearCache();
+  if (!state || state.status !== 'merge_required') clearCache();
   return state;
 }
 

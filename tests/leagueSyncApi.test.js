@@ -156,6 +156,9 @@ function createApi(db, overrides = {}) {
     loadPreview: overrides.loadPreview || (async (matchId) => readyPreview(matchId)),
     settleImportedMatch: overrides.settleImportedMatch || (async () => ({})),
     applyActualLineupToPreview: overrides.applyActualLineupToPreview || ((preview) => preview),
+    playerIdentityService: overrides.playerIdentityService || {
+      preflightPreview: async () => ({ status: 'ready', merges: [] })
+    },
     getPlayers: overrides.getPlayers || (async () => []),
     now: () => new Date(now),
     createLockOwner: overrides.createLockOwner || (() => 'lock-owner-a')
@@ -920,6 +923,46 @@ test('administrator confirmation converges an authoritative match without scorin
   assert.equal(row.status, 'imported');
   assert.equal(settlements, 0);
   assert.equal(db.state.leagueSyncQueue['700001'].status, 'imported');
+});
+
+test('administrator confirmation returns temporary merge preflight without settlement', async () => {
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'needs_review', preview: readyPreview('700001') }
+    }
+  });
+  const required = {
+    status: 'merge_required',
+    merges: [{ temporaryPlayerId: 'temp', targetPlayerId: 'p1' }]
+  };
+  let settlements = 0;
+  const api = createApi(db, {
+    playerIdentityService: { preflightPreview: async () => required },
+    settleImportedMatch: async () => { settlements += 1; }
+  });
+
+  const result = await api.confirmLeagueSyncMatch('admin', '700001', [], [], []);
+
+  assert.deepEqual(result, required);
+  assert.equal(settlements, 0);
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'needs_review');
+});
+
+test('administrator confirmation forwards exact merge approvals to settlement', async () => {
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'needs_review', preview: readyPreview('700001') }
+    }
+  });
+  const approvals = [{ temporaryPlayerId: 'temp', targetPlayerId: 'p1' }];
+  const metadata = [];
+  const api = createApi(db, {
+    settleImportedMatch: async (preview, value) => metadata.push(value)
+  });
+
+  await api.confirmLeagueSyncMatch('admin', '700001', [], [], approvals);
+
+  assert.deepEqual(metadata[0].mergeApprovals, approvals);
 });
 
 test('bootstrap state is client-safe and includes a bounded queue only for administrators', async () => {

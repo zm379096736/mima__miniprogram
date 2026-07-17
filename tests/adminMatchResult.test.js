@@ -41,7 +41,10 @@ test('cloud imported match confirmation requires administrator permission', () =
 
   assert.match(confirmBlock, /async function confirmImportedMatch\(openid,/);
   assert.match(confirmBlock, /assertAdmin\(openid, ['"]只有管理员可以导入比赛结果['"]\)/);
-  assert.match(cloudSource, /confirmImportedMatch\(openid, event\.matchId/);
+  assert.match(confirmBlock, /mergeApprovals/);
+  assert.match(confirmBlock, /preflightPreview/);
+  assert.match(cloudSource, /confirmImportedMatch\([\s\S]*openid,[\s\S]*event\.matchId/);
+  assert.match(cloudSource, /event\.mergeApprovals \|\| \[\]/);
 });
 
 test('cloud imported confirmation delegates to centralized settlement', () => {

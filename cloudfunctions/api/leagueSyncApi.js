@@ -97,6 +97,7 @@ function createLeagueSyncApi(dependencies) {
     loadPreview,
     settleImportedMatch,
     applyActualLineupToPreview,
+    playerIdentityService,
     getPlayers,
     now = () => new Date(),
     createLockOwner = defaultLockOwner
@@ -505,7 +506,7 @@ function createLeagueSyncApi(dependencies) {
     }
   }
 
-  async function confirmLeagueSyncMatch(openid, value, radiantPlayerIds, direPlayerIds) {
+  async function confirmLeagueSyncMatch(openid, value, radiantPlayerIds, direPlayerIds, mergeApprovals = []) {
     assertAdministrator(openid);
     const matchId = normalizeMatchId(value);
     const preflight = await db.runTransaction(async (transaction) => {
@@ -558,8 +559,12 @@ function createLeagueSyncApi(dependencies) {
       direPlayerIds,
       players
     );
+    const identityPreflight = await playerIdentityService.preflightPreview(reconciled, mergeApprovals);
+    if (identityPreflight.status === 'merge_required') return identityPreflight;
     try {
-      await settleImportedMatch(reconciled, settlementMetadata(row, players));
+      const metadata = settlementMetadata(row, players);
+      if (mergeApprovals.length) metadata.mergeApprovals = mergeApprovals;
+      await settleImportedMatch(reconciled, metadata);
       await queueReference(matchId).update({
         data: {
           ...importedQueueData(now()),

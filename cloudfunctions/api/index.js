@@ -8,6 +8,7 @@ const { swapTeamPlayers } = require('./teamEditor');
 const { loadMatchWithFallback } = require('./matchSources');
 const { requestJson } = require('./httpJson');
 const { settleImportedMatch } = require('./matchSettlement');
+const { createPlayerIdentityService } = require('./playerIdentityService');
 const { normalizeLeagueMatchRecords } = require('./leagueSyncCore');
 const { createLeagueSyncApi } = require('./leagueSyncApi');
 const { assertLeagueSyncToken } = require('./leagueSyncState');
@@ -919,6 +920,8 @@ async function previewImportedMatch(matchId) {
   return buildImportedMatchPreview(apiMatch, players);
 }
 
+const playerIdentityService = createPlayerIdentityService({ db });
+
 const leagueSyncApi = createLeagueSyncApi({
   db,
   isAdminOpenid,
@@ -926,6 +929,7 @@ const leagueSyncApi = createLeagueSyncApi({
   loadPreview: previewImportedMatch,
   settleImportedMatch: (preview, metadata) => settleImportedMatch(preview, metadata, { db }),
   applyActualLineupToPreview,
+  playerIdentityService,
   getPlayers: async () => (await db.collection('players').limit(100).get()).data
 });
 
@@ -944,7 +948,7 @@ async function discoverValveLeagueMatches(token, leagueId) {
   );
 }
 
-async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlayerIds) {
+async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlayerIds, mergeApprovals = []) {
   assertAdmin(openid, '只有管理员可以导入比赛结果');
   const preview = await previewImportedMatch(matchId);
   const players = (await db.collection('players').limit(100).get()).data;
@@ -955,13 +959,16 @@ async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlaye
     ? direPlayerIds
     : preview.dire.map((player) => player.playerId);
   const reconciled = applyActualLineupToPreview(preview, selectedRadiantIds, selectedDireIds, players);
+  const identityPreflight = await playerIdentityService.preflightPreview(reconciled, mergeApprovals);
+  if (identityPreflight.status === 'merge_required') return identityPreflight;
   const room = await getRoomDoc();
   return settleImportedMatch(reconciled, {
     source: 'manual-import',
     players,
     plannedParticipantIds: room.teams
       ? teamIds(room.teams.radiant).concat(teamIds(room.teams.dire))
-      : []
+      : [],
+    mergeApprovals
   }, { db });
 }
 
@@ -1073,7 +1080,8 @@ exports.main = async (event) => {
       openid,
       event.matchId,
       event.radiantPlayerIds,
-      event.direPlayerIds
+      event.direPlayerIds,
+      event.mergeApprovals || []
     );
   }
   if (action === 'saveProfile') {
@@ -1128,7 +1136,13 @@ exports.main = async (event) => {
     return previewImportedMatch(event.matchId);
   }
   if (action === 'confirmImportedMatch') {
-    return confirmImportedMatch(openid, event.matchId, event.radiantPlayerIds, event.direPlayerIds);
+    return confirmImportedMatch(
+      openid,
+      event.matchId,
+      event.radiantPlayerIds,
+      event.direPlayerIds,
+      event.mergeApprovals || []
+    );
   }
   if (action === 'discoverValveLeagueMatches') {
     return discoverValveLeagueMatches(event.token, event.leagueId);
