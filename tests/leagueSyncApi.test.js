@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const TOKEN = 'league-sync-test-token-1234567890abcdef';
+const LEAGUE_SYNC_START_TIME = 1784304000;
 process.env.LEAGUE_SYNC_TOKEN = TOKEN;
 
 const {
@@ -136,6 +137,7 @@ function readyPreview(matchId) {
   }));
   return {
     matchId: String(matchId),
+    startTime: LEAGUE_SYNC_START_TIME,
     radiantWin: true,
     radiantKills: 10,
     direKills: 5,
@@ -365,6 +367,43 @@ test('processing respects pause and a live five-minute lock', async () => {
   db.state.system.leagueSync.lockExpiresAt = new Date('2026-07-17T02:04:59.000Z');
   assert.deepEqual(await api.processLeagueQueue(TOKEN, 1), { skipped: true, reason: 'locked' });
   assert.equal(loads, 0);
+});
+
+test('processing ignores pre-start matches and retries missing start times', async () => {
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'discovered' },
+      700002: { _id: '700002', matchId: '700002', status: 'discovered' },
+      700003: { _id: '700003', matchId: '700003', status: 'discovered' }
+    }
+  });
+  const settled = [];
+  const api = createApi(db, {
+    loadPreview: async (matchId) => {
+      const preview = readyPreview(matchId);
+      if (matchId === '700001') preview.startTime = LEAGUE_SYNC_START_TIME - 1;
+      if (matchId === '700002') preview.startTime = 0;
+      return preview;
+    },
+    settleImportedMatch: async (preview) => settled.push(preview.matchId)
+  });
+
+  const result = await api.processLeagueQueue(TOKEN, 3);
+  const state = await api.getClientLeagueSyncState('admin');
+
+  assert.deepEqual(result, {
+    skipped: false,
+    processed: 3,
+    imported: 1,
+    needsReview: 0,
+    waitingData: 1,
+    failed: 0
+  });
+  assert.deepEqual(settled, ['700003']);
+  assert.equal(db.state.leagueSyncQueue['700001'].status, 'ignored_before_start');
+  assert.equal(db.state.leagueSyncQueue['700002'].status, 'waiting_data');
+  assert.equal(db.state.leagueSyncQueue['700003'].status, 'imported');
+  assert.equal(state.pendingCount, 1);
 });
 
 test('concurrent first runs initialize and acquire the state lock atomically', async () => {
@@ -785,6 +824,30 @@ test('administrator confirmation reuses reconciliation and never settles twice',
   assert.equal(first.status, 'imported');
   assert.deepEqual(second, { matchId: '700001', status: 'imported', alreadyImported: true });
   assert.equal(settlements, 1);
+});
+
+test('administrator confirmation cannot settle old or missing-time previews', async () => {
+  const oldPreview = readyPreview('700001');
+  oldPreview.startTime = LEAGUE_SYNC_START_TIME - 1;
+  const missingPreview = readyPreview('700002');
+  missingPreview.startTime = 0;
+  const db = createDb({
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'needs_review', preview: oldPreview },
+      700002: { _id: '700002', matchId: '700002', status: 'needs_review', preview: missingPreview }
+    }
+  });
+  let settlements = 0;
+  const api = createApi(db, {
+    settleImportedMatch: async () => { settlements += 1; }
+  });
+
+  const oldRow = await api.confirmLeagueSyncMatch('admin', '700001', [], []);
+  const missingRow = await api.confirmLeagueSyncMatch('admin', '700002', [], []);
+
+  assert.equal(oldRow.status, 'ignored_before_start');
+  assert.equal(missingRow.status, 'waiting_data');
+  assert.equal(settlements, 0);
 });
 
 test('administrator confirmation converges an authoritative match without scoring again', async () => {

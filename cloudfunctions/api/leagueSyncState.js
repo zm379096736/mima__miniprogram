@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 
 const DEFAULT_LEAGUE_ID = '20040';
+const LEAGUE_SYNC_START_TIME = 1784304000;
 const RETRY_DELAYS_MINUTES = [5, 15, 30, 60, 180, 360];
 const PROCESSING_LEASE_MS = 5 * 60 * 1000;
 const PENDING_STATUSES = ['discovered', 'waiting_data', 'needs_review', 'processing', 'failed'];
@@ -72,6 +73,12 @@ function clampBatchSize(value) {
   return Math.min(5, Math.max(1, parsed));
 }
 
+function classifyMatchStartTime(value) {
+  const startTime = Number(value);
+  if (!Number.isFinite(startTime) || startTime <= 0) return 'missing';
+  return startTime < LEAGUE_SYNC_START_TIME ? 'before_start' : 'eligible';
+}
+
 function dateValue(value) {
   if (!value) return 0;
   const date = value instanceof Date ? value : new Date(value);
@@ -126,6 +133,7 @@ function normalizeStoredPreview(preview) {
 
 module.exports = {
   DEFAULT_LEAGUE_ID,
+  LEAGUE_SYNC_START_TIME,
   RETRY_DELAYS_MINUTES,
   PROCESSING_LEASE_MS,
   PENDING_STATUSES,
@@ -135,6 +143,7 @@ module.exports = {
   sanitizeLeagueSyncError,
   defaultLeagueSyncState,
   clampBatchSize,
+  classifyMatchStartTime,
   dateValue,
   isEligibleQueueRow,
   normalizeStoredPreview

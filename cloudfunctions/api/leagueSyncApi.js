@@ -10,6 +10,7 @@ const {
   sanitizeLeagueSyncError,
   defaultLeagueSyncState,
   clampBatchSize,
+  classifyMatchStartTime,
   dateValue,
   isEligibleQueueRow,
   normalizeStoredPreview
@@ -133,6 +134,25 @@ function createLeagueSyncApi(dependencies) {
       importedAt: timestamp,
       updatedAt: timestamp
     };
+  }
+
+  function ignoredBeforeStartData(preview, timestamp) {
+    return {
+      status: 'ignored_before_start',
+      error: '',
+      nextRetryAt: null,
+      processingOwner: '',
+      processingAt: null,
+      preview,
+      ignoredAt: timestamp,
+      updatedAt: timestamp
+    };
+  }
+
+  function missingStartTimeError() {
+    const error = new Error('Match start time is not available yet');
+    error.code = 'MATCH_PENDING';
+    return error;
   }
 
   async function convergeQueueInTransaction(matchId) {
@@ -318,6 +338,13 @@ function createLeagueSyncApi(dependencies) {
         }
       });
       const preview = normalizeStoredPreview(await loadPreview(matchId));
+      const startDecision = classifyMatchStartTime(preview.startTime);
+      if (startDecision === 'missing') throw missingStartTimeError();
+      if (startDecision === 'before_start') {
+        const data = ignoredBeforeStartData(preview, now());
+        await reference.update({ data });
+        return { status: data.status };
+      }
       const classification = classifyPreview(preview);
       if (classification.status !== 'ready') {
         await reference.update({
@@ -461,6 +488,28 @@ function createLeagueSyncApi(dependencies) {
       return { matchId, status: 'imported', alreadyImported: true };
     }
     const row = preflight.row;
+    const normalizedPreview = normalizeStoredPreview(row.preview);
+    const startDecision = classifyMatchStartTime(normalizedPreview.startTime);
+    if (startDecision === 'before_start') {
+      const data = ignoredBeforeStartData(normalizedPreview, now());
+      await queueReference(matchId).update({ data });
+      return safeQueueRow({ ...row, ...data });
+    }
+    if (startDecision === 'missing') {
+      const attempts = Number(row.attempts || 0) + 1;
+      const error = missingStartTimeError();
+      const data = {
+        status: 'waiting_data',
+        attempts,
+        error: sanitizeLeagueSyncError(error),
+        nextRetryAt: nextRetryAt(attempts, now()),
+        processingOwner: '',
+        processingAt: null,
+        updatedAt: now()
+      };
+      await queueReference(matchId).update({ data });
+      return safeQueueRow({ ...row, ...data });
+    }
     const players = await getPlayers();
     const reconciled = applyActualLineupToPreview(
       row.preview,
