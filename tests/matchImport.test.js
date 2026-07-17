@@ -35,6 +35,21 @@ test('buildMatchPreview matches any steam id bound to a player', () => {
   assert.equal(preview.radiant[0].name, 'Multi ID Player');
 });
 
+test('buildMatchPreview treats account ID and Steam64 aliases on one card as one owner', () => {
+  const preview = buildMatchPreview({
+    match_id: 7002,
+    radiant_win: true,
+    players: [{ account_id: 67890 }, { account_id: 2 }, { account_id: 3 }, { account_id: 4 }, { account_id: 5 },
+      { account_id: 6 }, { account_id: 7 }, { account_id: 8 }, { account_id: 9 }, { account_id: 10 }]
+  }, [
+    { id: 'p1', name: 'Aliased player', steamIds: ['67890', '76561197960333618'] }
+  ]);
+
+  assert.equal(preview.radiant[0].playerId, 'p1');
+  assert.equal(preview.radiant[0].matched, true);
+  assert.equal(preview.radiant[0].ambiguous, false);
+});
+
 test('buildMatchPreview marks duplicate Steam ownership as ambiguous', () => {
   const preview = buildMatchPreview({
     match_id: 7002,

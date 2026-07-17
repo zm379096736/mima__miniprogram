@@ -53,7 +53,9 @@ function buildAccountMap(players) {
       if (accountId !== null) {
         const key = String(accountId);
         map[key] = map[key] || [];
-        map[key].push(player);
+        if (!map[key].some((candidate) => candidate.id === player.id)) {
+          map[key].push(player);
+        }
       }
     });
   });

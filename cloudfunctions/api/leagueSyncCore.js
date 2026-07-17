@@ -23,7 +23,8 @@ function classifyPreview(preview) {
   if (unmatchedAccountIds.length) {
     return { status: 'needs_review', reason: 'unmatched_players', unmatchedAccountIds };
   }
-  if (new Set(participants.map((player) => player.playerId)).size !== 10) {
+  if (participants.some((player) => !String(player.playerId || '').trim())
+    || new Set(participants.map((player) => player.playerId)).size !== 10) {
     return { status: 'needs_review', reason: 'duplicate_players', unmatchedAccountIds };
   }
   return { status: 'ready', reason: '', unmatchedAccountIds: [] };

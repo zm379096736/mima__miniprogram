@@ -66,6 +66,14 @@ test('classifyPreview reports incomplete, ambiguous, and duplicate lineups', () 
     reason: 'duplicate_players',
     unmatchedAccountIds: []
   });
+
+  const blankMatchedCard = lineup();
+  blankMatchedCard.dire[4].playerId = '';
+  assert.deepEqual(classifyPreview(blankMatchedCard), {
+    status: 'needs_review',
+    reason: 'duplicate_players',
+    unmatchedAccountIds: []
+  });
 });
 
 test('classifyPreview marks a complete unambiguous unique lineup ready', () => {
