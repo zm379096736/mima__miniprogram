@@ -8,6 +8,16 @@ function number(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const PERFORMANCE_FIELDS = ['kills', 'deaths', 'assists', 'goldPerMin', 'xpPerMin'];
+
+function hasCompletePerformanceData(snapshot) {
+  return PERFORMANCE_FIELDS.every((field) => {
+    if (!Object.prototype.hasOwnProperty.call(snapshot || {}, field)) return false;
+    const value = snapshot[field];
+    return value !== null && value !== '' && Number.isFinite(Number(value));
+  });
+}
+
 function timestamp(value) {
   if (!value) return 0;
   const raw = value && value.$date ? value.$date : value;
@@ -81,7 +91,8 @@ function buildPlayerMatchStats(player = {}, players = [], matches = []) {
     .map((match, index) => ({ match, index, time: matchTimestamp(match) }))
     .sort((left, right) => right.time - left.time || left.index - right.index)
     .map(({ match }) => ({ match, snapshot: snapshotForPlayer(match, playerId) }));
-  const totals = relevant.reduce((sum, row) => ({
+  const performanceRows = relevant.filter((row) => hasCompletePerformanceData(row.snapshot));
+  const totals = performanceRows.reduce((sum, row) => ({
     kills: sum.kills + number(row.snapshot.kills),
     deaths: sum.deaths + number(row.snapshot.deaths),
     assists: sum.assists + number(row.snapshot.assists),
@@ -90,7 +101,7 @@ function buildPlayerMatchStats(player = {}, players = [], matches = []) {
   }), { kills: 0, deaths: 0, assists: 0, gpm: 0, xpm: 0 });
   const wins = relevant.filter(({ match }) => (match.winnerIds || []).includes(playerId)).length;
   const count = relevant.length;
-  const divisor = Math.max(1, count);
+  const divisor = Math.max(1, performanceRows.length);
   const rankIndex = sortPlayersByPoints(players).findIndex((row) => row.id === playerId);
   const recentRows = relevant.slice(0, 20);
 

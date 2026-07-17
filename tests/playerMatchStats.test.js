@@ -63,6 +63,37 @@ test('zero match and missing snapshot statistics remain finite', () => {
   assert.equal(manual.recentMatches[0].kdaText, '0 / 0 / 0');
 });
 
+test('performance averages use only complete personal stat snapshots', () => {
+  const stats = buildPlayerMatchStats(
+    { id: 'p1', points: 1 },
+    [{ id: 'p1', points: 1 }],
+    [
+      {
+        id: 'manual-1', participantIds: ['p1'], winnerIds: [],
+        radiant: [{ playerId: 'p1', score: 80 }], dire: []
+      },
+      {
+        id: 'imported-1', participantIds: ['p1'], winnerIds: ['p1'],
+        radiant: [{
+          playerId: 'p1', heroId: 1, kills: 0, deaths: 2, assists: 8,
+          goldPerMin: 400, xpPerMin: 500
+        }],
+        dire: []
+      }
+    ]
+  );
+
+  assert.equal(stats.matches, 2);
+  assert.equal(stats.wins, 1);
+  assert.equal(stats.losses, 1);
+  assert.equal(stats.kdaText, '4.00');
+  assert.equal(stats.averageKills, '0.0');
+  assert.equal(stats.averageDeaths, '2.0');
+  assert.equal(stats.averageAssists, '8.0');
+  assert.equal(stats.averageGpm, '400');
+  assert.equal(stats.averageXpm, '500');
+});
+
 test('recent matches and hero usage are limited to twenty rows', () => {
   const matches = Array.from({ length: 24 }, (_, index) => ({
     id: `m-${index}`,
