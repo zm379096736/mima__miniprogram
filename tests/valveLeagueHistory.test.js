@@ -20,11 +20,11 @@ test('normalizes valid unique Valve match ids', () => {
   assert.deepEqual(normalizeValveLeagueMatches({
     result: {
       matches: [
-        { match_id: 8900989622 },
+        { match_id: 8900989622, start_time: 1784303999 },
         { match_id: '8900989622' },
         { match_id: 'bad' }
       ]
     }
-  }), [{ match_id: '8900989622' }]);
+  }), [{ match_id: '8900989622', start_time: 1784303999 }]);
   assert.deepEqual(normalizeValveLeagueMatches({ result: {} }), []);
 });

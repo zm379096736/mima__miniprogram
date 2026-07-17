@@ -1,9 +1,28 @@
-function normalizeLeagueMatchIds(payload) {
+function normalizeStartTime(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+}
+
+function normalizeLeagueMatchRecords(payload) {
   const rows = Array.isArray(payload) ? payload : [];
-  return Array.from(new Set(rows
-    .map((row) => String(row && row.match_id || '').trim())
-    .filter((id) => /^\d{6,20}$/.test(id))))
-    .sort((left, right) => (BigInt(left) > BigInt(right) ? -1 : BigInt(left) < BigInt(right) ? 1 : 0));
+  const byId = new Map();
+  rows.forEach((row) => {
+    const matchId = String(row && row.match_id || '').trim();
+    if (!/^\d{6,20}$/.test(matchId)) return;
+    const startTime = normalizeStartTime(row.start_time === undefined ? row.startTime : row.start_time);
+    const existing = byId.get(matchId);
+    if (!existing || (!existing.startTime && startTime)) {
+      byId.set(matchId, { matchId, startTime });
+    }
+  });
+  return Array.from(byId.values())
+    .sort((left, right) => (BigInt(left.matchId) > BigInt(right.matchId)
+      ? -1
+      : BigInt(left.matchId) < BigInt(right.matchId) ? 1 : 0));
+}
+
+function normalizeLeagueMatchIds(payload) {
+  return normalizeLeagueMatchRecords(payload).map((row) => row.matchId);
 }
 
 function classifyPreview(preview) {
@@ -30,4 +49,4 @@ function classifyPreview(preview) {
   return { status: 'ready', reason: '', unmatchedAccountIds: [] };
 }
 
-module.exports = { normalizeLeagueMatchIds, classifyPreview };
+module.exports = { normalizeLeagueMatchRecords, normalizeLeagueMatchIds, classifyPreview };

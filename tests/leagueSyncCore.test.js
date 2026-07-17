@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  normalizeLeagueMatchRecords,
   normalizeLeagueMatchIds,
   classifyPreview
 } = require('../cloudfunctions/api/leagueSyncCore');
@@ -25,6 +26,20 @@ test('normalizes valid unique league match IDs newest first', () => {
     { match_id: 700001 }, { match_id: '700002' }, { match_id: 700001 },
     { match_id: 'bad' }, { match_id: '12345' }, { match_id: '123456789012345678901' }
   ]), ['700002', '700001']);
+});
+
+test('normalizes league match start times and merges duplicate summaries', () => {
+  assert.deepEqual(normalizeLeagueMatchRecords([
+    { match_id: 700001, start_time: 0 },
+    { match_id: '700002', startTime: '1784304001' },
+    { match_id: '700001', start_time: 1784303999 },
+    { match_id: '700003', start_time: 'invalid' },
+    { match_id: 'bad', start_time: 1784304002 }
+  ]), [
+    { matchId: '700003', startTime: 0 },
+    { matchId: '700002', startTime: 1784304001 },
+    { matchId: '700001', startTime: 1784303999 }
+  ]);
 });
 
 test('orders 20 digit league match IDs without losing numeric precision', () => {

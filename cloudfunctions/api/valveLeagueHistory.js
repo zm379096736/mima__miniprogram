@@ -1,4 +1,5 @@
 const { leagueById } = require('./leagueConfig');
+const { normalizeLeagueMatchRecords } = require('./leagueSyncCore');
 
 function buildValveLeagueHistoryUrl(apiKey, leagueId, count = 100) {
   const key = String(apiKey || '').trim();
@@ -16,15 +17,10 @@ function normalizeValveLeagueMatches(payload) {
   const rows = payload && payload.result && Array.isArray(payload.result.matches)
     ? payload.result.matches
     : [];
-  const seen = new Set();
-  return rows.reduce((result, row) => {
-    const matchId = String(row && row.match_id || '').trim();
-    if (/^\d{6,20}$/.test(matchId) && !seen.has(matchId)) {
-      seen.add(matchId);
-      result.push({ match_id: matchId });
-    }
-    return result;
-  }, []);
+  return normalizeLeagueMatchRecords(rows).map((row) => ({
+    match_id: row.matchId,
+    ...(row.startTime ? { start_time: row.startTime } : {})
+  }));
 }
 
 module.exports = {
