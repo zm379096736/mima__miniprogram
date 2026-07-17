@@ -45,6 +45,16 @@ test('formats retryable failures without leaking raw upstream details', () => {
   assert.equal(view.queue[0].errorText.includes('/var/user'), false);
 });
 
+test('labels pre-start matches as ignored without actions', () => {
+  const view = buildLeagueSyncView({
+    queuePreview: [{ matchId: '7003', status: 'ignored_before_start' }]
+  });
+
+  assert.equal(view.queue[0].statusText, '起算日前，已忽略');
+  assert.equal(view.queue[0].canRetry, false);
+  assert.equal(view.queue[0].canReview, false);
+});
+
 test('labels automatic, imported, and manual match sources', () => {
   assert.equal(matchSourceText({ source: 'league-auto' }), '联赛自动导入');
   assert.equal(matchSourceText({ source: 'league-auto', leagueName: '斐济杯' }), '斐济杯 · 自动导入');

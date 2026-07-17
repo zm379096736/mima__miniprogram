@@ -1,4 +1,5 @@
 const STATUS_TEXT = {
+  ignored_before_start: '\u8d77\u7b97\u65e5\u524d\uff0c\u5df2\u5ffd\u7565',
   discovered: '等待同步',
   processing: '正在同步',
   waiting_data: '等待数据',
