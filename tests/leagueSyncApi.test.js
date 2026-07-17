@@ -10,7 +10,7 @@ const {
   nextRetryAt
 } = require('../cloudfunctions/api/leagueSyncState');
 const { createLeagueSyncApi } = require('../cloudfunctions/api/leagueSyncApi');
-const { normalizeLeagueMatchIds } = require('../cloudfunctions/api/leagueSyncCore');
+const { normalizeLeagueMatchRecords } = require('../cloudfunctions/api/leagueSyncCore');
 
 function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
@@ -152,7 +152,7 @@ function createApi(db, overrides = {}) {
   return createLeagueSyncApi({
     db,
     isAdminOpenid: (openid) => openid === 'admin',
-    normalizeLeagueMatchIds,
+    normalizeLeagueMatchRecords,
     loadPreview: overrides.loadPreview || (async (matchId) => readyPreview(matchId)),
     settleImportedMatch: overrides.settleImportedMatch || (async () => ({})),
     applyActualLineupToPreview: overrides.applyActualLineupToPreview || ((preview) => preview),
@@ -216,6 +216,57 @@ test('discovery uses normalized IDs and preserves imported and review rows', asy
   assert.equal(db.state.leagueSyncQueue['700001'].discoverySource, 'opendota');
   assert.equal(db.state.leagueSyncQueue['700002'].importedAt, 'kept');
   assert.deepEqual(db.state.leagueSyncQueue['700003'].preview, { chosen: true });
+});
+
+test('discovery converges old active rows and preserves protected states', async () => {
+  const oldTime = LEAGUE_SYNC_START_TIME - 1;
+  const db = createDb({
+    matches: {
+      'imported-700009': { _id: 'imported-700009', matchId: '700009' }
+    },
+    leagueSyncQueue: {
+      700001: { _id: '700001', matchId: '700001', status: 'waiting_data', attempts: 2 },
+      700002: { _id: '700002', matchId: '700002', status: 'failed', attempts: 1 },
+      700003: { _id: '700003', matchId: '700003', status: 'discovered' },
+      700004: { _id: '700004', matchId: '700004', status: 'imported', importedAt: 'kept' },
+      700005: { _id: '700005', matchId: '700005', status: 'needs_review', preview: { kept: true } },
+      700006: { _id: '700006', matchId: '700006', status: 'processing', processingOwner: 'kept' },
+      700007: { _id: '700007', matchId: '700007', status: 'ignored_before_start', ignoredAt: 'kept' },
+      700009: { _id: '700009', matchId: '700009', status: 'waiting_data' }
+    }
+  });
+  const api = createApi(db);
+  const payload = [
+    { match_id: 700000, start_time: oldTime },
+    { match_id: 700001, start_time: oldTime },
+    { match_id: 700002, start_time: oldTime },
+    { match_id: 700003, start_time: oldTime },
+    { match_id: 700004, start_time: oldTime },
+    { match_id: 700005, start_time: oldTime },
+    { match_id: 700006, start_time: oldTime },
+    { match_id: 700007, start_time: oldTime },
+    { match_id: 700008, start_time: LEAGUE_SYNC_START_TIME },
+    { match_id: 700009, start_time: oldTime },
+    { match_id: 700010 }
+  ];
+
+  const result = await api.discoverLeagueMatches(TOKEN, payload, {
+    leagueId: '19608', leagueName: '斐济杯', discoverySource: 'valve'
+  });
+
+  assert.deepEqual(result, { discovered: 11, inserted: 3 });
+  for (const matchId of ['700000', '700001', '700002', '700003']) {
+    assert.equal(db.state.leagueSyncQueue[matchId].status, 'ignored_before_start');
+    assert.equal(db.state.leagueSyncQueue[matchId].startTime, oldTime);
+  }
+  assert.equal(db.state.leagueSyncQueue['700004'].importedAt, 'kept');
+  assert.deepEqual(db.state.leagueSyncQueue['700005'].preview, { kept: true });
+  assert.equal(db.state.leagueSyncQueue['700006'].processingOwner, 'kept');
+  assert.equal(db.state.leagueSyncQueue['700007'].ignoredAt, 'kept');
+  assert.equal(db.state.leagueSyncQueue['700008'].status, 'discovered');
+  assert.equal(db.state.leagueSyncQueue['700008'].startTime, LEAGUE_SYNC_START_TIME);
+  assert.equal(db.state.leagueSyncQueue['700009'].status, 'imported');
+  assert.equal(db.state.leagueSyncQueue['700010'].status, 'discovered');
 });
 
 test('discovery create-if-absent cannot overwrite a concurrent review row', async () => {

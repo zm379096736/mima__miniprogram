@@ -8,7 +8,7 @@ const { swapTeamPlayers } = require('./teamEditor');
 const { loadMatchWithFallback } = require('./matchSources');
 const { requestJson } = require('./httpJson');
 const { settleImportedMatch } = require('./matchSettlement');
-const { normalizeLeagueMatchIds } = require('./leagueSyncCore');
+const { normalizeLeagueMatchRecords } = require('./leagueSyncCore');
 const { createLeagueSyncApi } = require('./leagueSyncApi');
 const { assertLeagueSyncToken } = require('./leagueSyncState');
 const { leagueById } = require('./leagueConfig');
@@ -922,7 +922,7 @@ async function previewImportedMatch(matchId) {
 const leagueSyncApi = createLeagueSyncApi({
   db,
   isAdminOpenid,
-  normalizeLeagueMatchIds,
+  normalizeLeagueMatchRecords,
   loadPreview: previewImportedMatch,
   settleImportedMatch: (preview, metadata) => settleImportedMatch(preview, metadata, { db }),
   applyActualLineupToPreview,

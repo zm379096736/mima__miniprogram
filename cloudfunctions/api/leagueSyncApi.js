@@ -93,7 +93,7 @@ function createLeagueSyncApi(dependencies) {
   const {
     db,
     isAdminOpenid,
-    normalizeLeagueMatchIds,
+    normalizeLeagueMatchRecords,
     loadPreview,
     settleImportedMatch,
     applyActualLineupToPreview,
@@ -191,14 +191,54 @@ function createLeagueSyncApi(dependencies) {
   async function discoverLeagueMatches(token, payload, metadata) {
     assertLeagueSyncToken(token);
     await ensureLeagueSyncState();
-    const matchIds = normalizeLeagueMatchIds(payload);
+    const matches = normalizeLeagueMatchRecords(payload);
     const leagueMetadata = normalizeLeagueMetadata(metadata);
     let inserted = 0;
-    for (const matchId of matchIds) {
+    for (const matchSummary of matches) {
+      const matchId = matchSummary.matchId;
       inserted += await db.runTransaction(async (transaction) => {
         const reference = queueReference(matchId, transaction);
-        if (await readDocument(reference)) return 0;
+        const existing = await readDocument(reference);
         const timestamp = now();
+        if (await hasAuthoritativeMatch(matchId, transaction)) {
+          const data = {
+            matchId,
+            ...leagueMetadata,
+            ...importedQueueData(timestamp)
+          };
+          if (existing) {
+            await reference.update({ data });
+            return 0;
+          }
+          await reference.set({ data: { ...data, createdAt: timestamp } });
+          return 1;
+        }
+
+        const startDecision = classifyMatchStartTime(matchSummary.startTime);
+        const canIgnoreExisting = existing
+          && ['discovered', 'waiting_data', 'failed'].includes(existing.status);
+        if (startDecision === 'before_start' && (!existing || canIgnoreExisting)) {
+          const data = {
+            matchId,
+            ...leagueMetadata,
+            status: 'ignored_before_start',
+            startTime: matchSummary.startTime,
+            error: '',
+            nextRetryAt: null,
+            processingOwner: '',
+            processingAt: null,
+            ignoredAt: timestamp,
+            updatedAt: timestamp
+          };
+          if (existing) {
+            await reference.update({ data });
+            return 0;
+          }
+          await reference.set({ data: { ...data, discoveredAt: timestamp, createdAt: timestamp } });
+          return 1;
+        }
+
+        if (existing) return 0;
         await reference.set({
           data: {
             matchId,
@@ -207,6 +247,7 @@ function createLeagueSyncApi(dependencies) {
             attempts: 0,
             error: '',
             nextRetryAt: null,
+            ...(matchSummary.startTime ? { startTime: matchSummary.startTime } : {}),
             discoveredAt: timestamp,
             createdAt: timestamp,
             updatedAt: timestamp
@@ -215,7 +256,7 @@ function createLeagueSyncApi(dependencies) {
         return 1;
       });
     }
-    return { discovered: matchIds.length, inserted };
+    return { discovered: matches.length, inserted };
   }
 
   function settlementMetadata(row, players) {
