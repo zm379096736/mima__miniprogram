@@ -83,7 +83,8 @@ function isMissingMatchDocumentError(error) {
   const message = String(error && (error.errMsg || error.message || error)).toLowerCase();
   return message.includes('document.get:fail document not exists')
     || message.includes('document_not_exist')
-    || message.includes('document not exists');
+    || message.includes('document not exists')
+    || /document\b.*\bdoes not exist\b/.test(message);
 }
 
 async function readExistingMatch(matchRef) {

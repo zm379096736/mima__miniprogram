@@ -249,6 +249,23 @@ test('settleImportedMatch creates the first match when a missing document read t
   assert.equal(state.players['doc-1'].matches, 4);
 });
 
+test('settleImportedMatch accepts CloudBase does-not-exist wording for a new match', async () => {
+  const preview = previewFixture({ matchId: '8900989622' });
+  const state = transactionState(preview);
+  const error = new Error(
+    'document.get:fail document with _id imported-8900989622 does not exist'
+  );
+  error.errMsg = error.message;
+
+  await executeSettlement(
+    preview,
+    { players: playersFor(preview) },
+    createTransactionDb(state, { matchReadError: error })
+  );
+
+  assert.equal(state.matches['imported-8900989622']._id, 'imported-8900989622');
+});
+
 test('settleImportedMatch rethrows non-not-found match read errors without player changes', async () => {
   const preview = previewFixture();
   const state = transactionState(preview);
