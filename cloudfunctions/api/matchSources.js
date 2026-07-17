@@ -7,7 +7,9 @@ function normalizeValvePlayer(player) {
     hero_id: Number(player.hero_id || 0),
     kills: Number(player.kills || 0),
     deaths: Number(player.deaths || 0),
-    assists: Number(player.assists || 0)
+    assists: Number(player.assists || 0),
+    gold_per_min: Number(player.gold_per_min || 0),
+    xp_per_min: Number(player.xp_per_min || 0)
   };
 }
 

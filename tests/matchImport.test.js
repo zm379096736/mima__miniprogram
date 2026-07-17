@@ -35,13 +35,29 @@ test('buildMatchPreview matches any steam id bound to a player', () => {
   assert.equal(preview.radiant[0].name, 'Multi ID Player');
 });
 
+test('buildMatchPreview marks duplicate Steam ownership as ambiguous', () => {
+  const preview = buildMatchPreview({
+    match_id: 7002,
+    radiant_win: true,
+    players: [{ account_id: 67890 }, { account_id: 2 }, { account_id: 3 }, { account_id: 4 }, { account_id: 5 },
+      { account_id: 6 }, { account_id: 7 }, { account_id: 8 }, { account_id: 9 }, { account_id: 10 }]
+  }, [
+    { id: 'p1', name: 'First owner', steamIds: ['67890'] },
+    { id: 'p2', name: 'Second owner', steamId: '67890' }
+  ]);
+
+  assert.equal(preview.radiant[0].matched, false);
+  assert.equal(preview.radiant[0].ambiguous, true);
+  assert.equal(preview.radiant[0].playerId, '');
+});
+
 test('buildMatchPreview maps OpenDota players to local player cards', () => {
   const preview = buildMatchPreview({
     match_id: 7001,
     radiant_win: true,
     duration: 1800,
     players: [
-      { account_id: 1, hero_id: 10, kills: 8, deaths: 1, assists: 12 },
+      { account_id: 1, player_slot: 0, hero_id: 10, kills: 8, deaths: 1, assists: 12, gold_per_min: 600, xp_per_min: 700 },
       { account_id: 2, hero_id: 11, kills: 5, deaths: 2, assists: 9 },
       { account_id: 3, hero_id: 12, kills: 1, deaths: 3, assists: 14 },
       { account_id: 4, hero_id: 13, kills: 0, deaths: 4, assists: 17 },
@@ -61,6 +77,20 @@ test('buildMatchPreview maps OpenDota players to local player cards', () => {
   assert.equal(preview.matchedCount, 2);
   assert.equal(preview.radiant[0].name, 'Carry');
   assert.equal(preview.dire[0].name, 'Enemy Carry');
+  assert.deepEqual(preview.radiant[0], {
+    accountId: 1,
+    playerId: 'p1',
+    name: 'Carry',
+    matched: true,
+    ambiguous: false,
+    playerSlot: 0,
+    heroId: 10,
+    kills: 8,
+    deaths: 1,
+    assists: 12,
+    goldPerMin: 600,
+    xpPerMin: 700
+  });
 });
 
 test('applyImportedMatchResult gives winners two points and losers minus one', () => {

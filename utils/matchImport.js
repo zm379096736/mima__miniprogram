@@ -51,7 +51,9 @@ function buildAccountMap(players) {
     playerSteamIds(player).forEach((steamId) => {
       const accountId = accountIdFromSteamId(steamId);
       if (accountId !== null) {
-        map[String(accountId)] = player;
+        const key = String(accountId);
+        map[key] = map[key] || [];
+        map[key].push(player);
       }
     });
   });
@@ -60,16 +62,21 @@ function buildAccountMap(players) {
 
 function decorateApiPlayer(apiPlayer, accountMap) {
   const accountId = Number(apiPlayer.account_id || 0);
-  const matched = accountMap[String(accountId)];
+  const matches = accountMap[String(accountId)] || [];
+  const matched = matches.length === 1 ? matches[0] : null;
   return {
     accountId,
     playerId: matched ? matched.id : '',
     name: matched ? matched.name : `Dota ${accountId || '\u533f\u540d'}`,
     matched: Boolean(matched),
+    ambiguous: matches.length > 1,
+    playerSlot: Number(apiPlayer.player_slot || 0),
     heroId: apiPlayer.hero_id || 0,
     kills: Number(apiPlayer.kills || 0),
     deaths: Number(apiPlayer.deaths || 0),
-    assists: Number(apiPlayer.assists || 0)
+    assists: Number(apiPlayer.assists || 0),
+    goldPerMin: Number(apiPlayer.gold_per_min || 0),
+    xpPerMin: Number(apiPlayer.xp_per_min || 0)
   };
 }
 

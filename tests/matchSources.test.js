@@ -17,7 +17,7 @@ function valveFixture() {
       lobby_type: 1,
       players: [
         { account_id: 6, player_slot: 128, hero_id: 16, kills: 6, deaths: 2, assists: 8 },
-        { account_id: 1, player_slot: 0, hero_id: 11, kills: 1, deaths: 3, assists: 4 },
+        { account_id: 1, player_slot: 0, hero_id: 11, kills: 1, deaths: 3, assists: 4, gold_per_min: 450, xp_per_min: 520 },
         { account_id: 2, player_slot: 1 },
         { account_id: 3, player_slot: 2 },
         { account_id: 4, player_slot: 3 },
@@ -47,7 +47,9 @@ test('normalizeValveMatch unwraps result and orders players by side and slot', (
     hero_id: 11,
     kills: 1,
     deaths: 3,
-    assists: 4
+    assists: 4,
+    gold_per_min: 450,
+    xp_per_min: 520
   });
 });
 
