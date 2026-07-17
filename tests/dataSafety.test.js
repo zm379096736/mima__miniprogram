@@ -39,10 +39,13 @@ test('league sync actions keep internal and caller authorization paths separate'
   assert.doesNotMatch(source, /return\s+process\.env\.LEAGUE_SYNC_TOKEN/);
 });
 
-test('league sync collections are created without adding a timer cloud function', () => {
+test('league sync collections and timer function exist without embedded secrets', () => {
   const source = fs.readFileSync(path.join(__dirname, '../cloudfunctions/api/index.js'), 'utf8');
+  const timerSource = fs.readFileSync(path.join(__dirname, '../cloudfunctions/leagueSync/index.js'), 'utf8');
 
   assert.match(source, /ensureCollection\('system'\)/);
   assert.match(source, /ensureCollection\('leagueSyncQueue'\)/);
-  assert.equal(fs.existsSync(path.join(__dirname, '../cloudfunctions/leagueSync')), false);
+  assert.match(timerSource, /process\.env\.LEAGUE_SYNC_TOKEN/);
+  assert.match(timerSource, /api\.opendota\.com\/api\/leagues/);
+  assert.doesNotMatch(timerSource, /[A-F0-9]{32}/);
 });
