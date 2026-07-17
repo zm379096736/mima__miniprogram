@@ -1,3 +1,5 @@
+const { createPlayerIdentityService } = require('./playerIdentityService');
+
 function selectedPlayerIds(players) {
   return (players || []).map((player) => String(player && player.playerId || '').trim());
 }
@@ -101,15 +103,23 @@ async function settleImportedMatch(preview, metadata = {}, dependencies = {}) {
     throw new Error('Imported match settlement requires a database');
   }
   const players = metadata.players || (await db.collection('players').limit(100).get()).data;
-  const settlement = buildSettlement(preview, players, metadata);
+  buildSettlement(preview, players, metadata);
+  const identityService = createPlayerIdentityService({ db });
   const plannedParticipantIds = Array.isArray(metadata.plannedParticipantIds)
     ? metadata.plannedParticipantIds
     : [];
   const persist = async (writer) => {
-    const matchRef = writer.collection('matches').doc(settlement.match.id);
+    const matchRef = writer.collection('matches').doc(`imported-${String(preview.matchId || '').trim()}`);
     if (await readExistingMatch(matchRef)) {
       throw new Error('\u8fd9\u573a\u6bd4\u8d5b\u5df2\u7ecf\u5bfc\u5165\u8fc7');
     }
+
+    const transactionPlayers = await identityService.applyPreviewIdentity(
+      writer,
+      preview,
+      metadata.mergeApprovals || []
+    );
+    const settlement = buildSettlement(preview, transactionPlayers, metadata);
 
     for (const update of settlement.playerUpdates) {
       const playerRef = writer.collection('players').doc(update._id);

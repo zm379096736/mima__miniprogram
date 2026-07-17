@@ -16,6 +16,7 @@ function previewFixture(overrides = {}) {
     startTime: 1710000000,
     winner: 'Radiant',
     radiant: Array.from({ length: 5 }, (_, index) => ({
+      accountId: index + 1,
       playerId: `r${index + 1}`,
       name: `Radiant ${index + 1}`,
       heroId: 39,
@@ -26,6 +27,7 @@ function previewFixture(overrides = {}) {
       xpPerMin: 700 + index
     })),
     dire: Array.from({ length: 5 }, (_, index) => ({
+      accountId: index + 6,
       playerId: `d${index + 1}`,
       name: `Dire ${index + 1}`,
       kills: index + 1
@@ -76,6 +78,9 @@ function createTransactionDb(state, options = {}) {
               },
               async set({ data }) {
                 target[name][id] = { _id: id, ...clone(data) };
+              },
+              async remove() {
+                delete target[name][id];
               }
             };
           },
@@ -108,6 +113,7 @@ function transactionState(preview, overrides = {}) {
   return {
     players: Object.fromEntries(players.map((player) => [player._id, player])),
     matches: {},
+    rooms: {},
     ...overrides
   };
 }
@@ -302,4 +308,28 @@ test('settleImportedMatch calculates totals from transaction player snapshots', 
   });
   assert.equal(state.matches['imported-7002']._id, 'imported-7002');
   assert.equal(state.matches['imported-7002'].createdAt, 'server-date');
+});
+
+test('settlement atomically binds account ids with scoring', async () => {
+  const preview = previewFixture();
+  const state = transactionState(preview);
+
+  await executeSettlement(preview, { players: playersFor(preview) }, createTransactionDb(state));
+
+  assert.deepEqual(state.players['doc-1'].steamIds, ['1']);
+  assert.equal(state.players['doc-1'].matches, 4);
+  assert.ok(state.matches['imported-7002']);
+});
+
+test('duplicate match does not add a new Steam binding', async () => {
+  const preview = previewFixture();
+  const state = transactionState(preview, {
+    matches: { 'imported-7002': { _id: 'imported-7002', id: 'imported-7002' } }
+  });
+
+  await assert.rejects(
+    executeSettlement(preview, {}, createTransactionDb(state)),
+    /已经导入/
+  );
+  assert.deepEqual(state.players['doc-1'].steamIds || [], []);
 });
