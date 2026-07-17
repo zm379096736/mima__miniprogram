@@ -65,6 +65,24 @@ function documentData(result) {
   return result && result.data ? result.data : null;
 }
 
+function isMissingMatchDocumentError(error) {
+  const message = String(error && (error.errMsg || error.message || error)).toLowerCase();
+  return message.includes('document.get:fail document not exists')
+    || message.includes('document_not_exist')
+    || message.includes('document not exists');
+}
+
+async function readExistingMatch(matchRef) {
+  try {
+    return documentData(await matchRef.get());
+  } catch (error) {
+    if (isMissingMatchDocumentError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 async function settleImportedMatch(preview, metadata = {}, dependencies = {}) {
   const db = dependencies.db;
   if (!db) {
@@ -77,7 +95,7 @@ async function settleImportedMatch(preview, metadata = {}, dependencies = {}) {
     : [];
   const persist = async (writer) => {
     const matchRef = writer.collection('matches').doc(settlement.match.id);
-    if (documentData(await matchRef.get())) {
+    if (await readExistingMatch(matchRef)) {
       throw new Error('\u8fd9\u573a\u6bd4\u8d5b\u5df2\u7ecf\u5bfc\u5165\u8fc7');
     }
 

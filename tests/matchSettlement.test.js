@@ -52,6 +52,14 @@ function createTransactionDb(state, options = {}) {
           doc(id) {
             return {
               async get() {
+                if (name === 'matches' && options.matchReadError) {
+                  throw options.matchReadError;
+                }
+                if (!target[name][id] && name === 'matches' && options.missingMatchThrows) {
+                  const error = new Error('document.get:fail document not exists');
+                  error.errMsg = 'document.get:fail document not exists';
+                  throw error;
+                }
                 return { data: target[name][id] ? clone(target[name][id]) : null };
               },
               async update({ data }) {
@@ -183,6 +191,36 @@ test('settleImportedMatch rejects a deterministic duplicate without player chang
   await assert.rejects(
     executeSettlement(preview, { players: playersFor(preview) }, createTransactionDb(state)),
     new RegExp('\u5df2\u7ecf\u5bfc\u5165')
+  );
+  assert.deepEqual(state, before);
+});
+
+test('settleImportedMatch creates the first match when a missing document read throws', async () => {
+  const preview = previewFixture();
+  const state = transactionState(preview);
+
+  await executeSettlement(
+    preview,
+    { players: playersFor(preview) },
+    createTransactionDb(state, { missingMatchThrows: true })
+  );
+
+  assert.equal(state.matches['imported-7002']._id, 'imported-7002');
+  assert.equal(state.players['doc-1'].matches, 4);
+});
+
+test('settleImportedMatch rethrows non-not-found match read errors without player changes', async () => {
+  const preview = previewFixture();
+  const state = transactionState(preview);
+  const before = clone(state);
+
+  await assert.rejects(
+    executeSettlement(
+      preview,
+      { players: playersFor(preview) },
+      createTransactionDb(state, { matchReadError: new Error('database unavailable') })
+    ),
+    /database unavailable/
   );
   assert.deepEqual(state, before);
 });
