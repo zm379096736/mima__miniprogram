@@ -16,38 +16,44 @@
     <view class="section team-card radiant">
       <view class="team-head">
         <text>天辉</text>
+        <text class="team-score">自评 {{detail.radiantScore}}</text>
         <text wx:if="{{detail.winnerSide === 'radiant' || detail.radiantWin}}" class="badge blue">胜利</text>
       </view>
       <view wx:for="{{detail.radiant}}" wx:key="playerId" class="player-row">
+        <image wx:if="{{detail.imported}}" class="hero-portrait" src="{{item.heroImage}}" mode="aspectFill"></image>
+        <image class="player-avatar" src="{{item.avatarSrc}}" mode="aspectFill"></image>
         <view class="player-main">
-          <view class="player-name">{{item.name}}</view>
+          <view class="player-name">{{detail.imported ? item.heroName : item.name}}</view>
+          <view wx:if="{{detail.imported}}" class="player-meta">{{item.name}} · 自评分 {{item.score}}</view>
           <view wx:if="{{detail.imported}}" class="player-meta">K / D / A：{{item.kdaText}}</view>
           <view wx:if="{{detail.imported}}" class="economy-row">
-            <text>GPM {{item.goldPerMin}}</text>
-            <text>XPM {{item.xpPerMin}}</text>
+            <text>GPM {{item.gpmText}}</text>
+            <text>XPM {{item.xpmText}}</text>
           </view>
-          <view wx:elif="{{item.assignedPosition}}" class="player-meta">{{item.assignedPosition}}号位 / 自评分 {{item.score}}</view>
+          <view wx:else class="player-meta">{{item.assignedPosition ? item.assignedPosition + '号位 · ' : ''}}自评分 {{item.score}}</view>
         </view>
-        <text class="badge blue">天辉</text>
       </view>
     </view>
 
     <view class="section team-card dire">
       <view class="team-head">
         <text>夜魇</text>
+        <text class="team-score">自评 {{detail.direScore}}</text>
         <text wx:if="{{detail.winnerSide === 'dire' || (detail.imported && !detail.radiantWin)}}" class="badge red">胜利</text>
       </view>
       <view wx:for="{{detail.dire}}" wx:key="playerId" class="player-row">
+        <image wx:if="{{detail.imported}}" class="hero-portrait" src="{{item.heroImage}}" mode="aspectFill"></image>
+        <image class="player-avatar" src="{{item.avatarSrc}}" mode="aspectFill"></image>
         <view class="player-main">
-          <view class="player-name">{{item.name}}</view>
+          <view class="player-name">{{detail.imported ? item.heroName : item.name}}</view>
+          <view wx:if="{{detail.imported}}" class="player-meta">{{item.name}} · 自评分 {{item.score}}</view>
           <view wx:if="{{detail.imported}}" class="player-meta">K / D / A：{{item.kdaText}}</view>
           <view wx:if="{{detail.imported}}" class="economy-row">
-            <text>GPM {{item.goldPerMin}}</text>
-            <text>XPM {{item.xpPerMin}}</text>
+            <text>GPM {{item.gpmText}}</text>
+            <text>XPM {{item.xpmText}}</text>
           </view>
-          <view wx:elif="{{item.assignedPosition}}" class="player-meta">{{item.assignedPosition}}号位 / 自评分 {{item.score}}</view>
+          <view wx:else class="player-meta">{{item.assignedPosition ? item.assignedPosition + '号位 · ' : ''}}自评分 {{item.score}}</view>
         </view>
-        <text class="badge red">夜魇</text>
       </view>
     </view>
   </block>

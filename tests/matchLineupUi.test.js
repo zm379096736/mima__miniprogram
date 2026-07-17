@@ -12,6 +12,17 @@ test('match page exposes manual actual lineup pickers for both sides', () => {
   assert.match(wxml, /bindchange="onActualPlayerChange"/);
   assert.match(js, /radiantPlayerIds:\s*this\.selectedIds/);
   assert.match(js, /direPlayerIds:\s*this\.selectedIds/);
+  assert.match(js, /avatarSrc:\s*player\.avatarSrc/);
+  assert.match(js, /score:\s*Number\(player\.score/);
+  assert.match(wxml, /playerOptions\[item\.pickerIndex\]\.avatarSrc/);
+  assert.match(wxml, /playerOptions\[item\.pickerIndex\]\.score/);
+});
+
+test('history cards label manual team self-rating totals', () => {
+  assert.match(wxml, /item\.radiantScore/);
+  assert.match(wxml, /item\.direScore/);
+  assert.match(wxml, /天辉自评/);
+  assert.match(wxml, /夜魇自评/);
 });
 
 test('import preview supports per-row reconciliation and temporary cards', () => {

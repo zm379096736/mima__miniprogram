@@ -18,10 +18,22 @@ function buildPlayerOptions(players) {
     .slice()
     .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'zh-CN'));
 
-  return [{ id: '', label: '请选择选手' }].concat(selectable.map((player) => ({
+  return [{ id: '', label: '请选择选手', score: 0, avatarSrc: '/images/tab.png' }].concat(selectable.map((player) => ({
     id: player.id,
-    label: `${player.name || '未命名选手'}${player.temporary ? '（临时）' : ''}`
+    label: `${player.name || '未命名选手'}${player.temporary ? '（临时）' : ''}`,
+    score: Number(player.score || 0),
+    avatarSrc: player.avatarSrc || '/images/tab.png'
   })));
+}
+
+function matchSideScore(match, side, players) {
+  const stored = Number(match && match[`${side}Score`]);
+  if (Number.isFinite(stored)) return stored;
+  const playerById = Object.fromEntries((players || []).map((player) => [player.id, player]));
+  return ((match && match[side]) || []).reduce((total, snapshot) => {
+    const current = playerById[snapshot.playerId || snapshot.id] || {};
+    return total + Number(snapshot.score === undefined ? current.score || 0 : snapshot.score || 0);
+  }, 0);
 }
 
 function findPickerIndex(options, playerId) {
@@ -105,7 +117,9 @@ Page({
       teams,
       matches: (data.matches || []).map((match) => ({
         ...match,
-        sourceText: matchSourceText(match)
+        sourceText: matchSourceText(match),
+        radiantScore: matchSideScore(match, 'radiant', players),
+        direScore: matchSideScore(match, 'dire', players)
       })),
       players,
       playerOptions,

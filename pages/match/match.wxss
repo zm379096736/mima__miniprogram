@@ -151,10 +151,32 @@
 
 .lineup-name {
   overflow: hidden;
-  margin-left: 18rpx;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.lineup-avatar {
+  width: 52rpx;
+  height: 52rpx;
+  flex-shrink: 0;
+  margin-left: 14rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lineup-choice {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  margin-left: 12rpx;
+  flex-direction: column;
+}
+
+.lineup-score {
+  margin-top: 4rpx;
+  color: #d8c78f;
+  font-size: 21rpx;
 }
 
 .temporary-btn {

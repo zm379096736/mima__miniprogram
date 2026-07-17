@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { cleanCloudErrorMessage } = require('../utils/cloudStore');
 
@@ -15,4 +17,11 @@ test('cleanCloudErrorMessage extracts known cloud function business message', ()
     message: 'cloud.callFunction:fail Error: 这场比赛已经导入过 at confirmImportedMatch (/var/user/index.js:464:11)'
   });
   assert.equal(message, '这场比赛已经导入过');
+});
+
+test('cloud store exposes imported detail refresh and clears cached bootstrap', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../utils/cloudStore.js'), 'utf8');
+  assert.match(source, /async function refreshImportedMatchDetail/);
+  assert.match(source, /callApi\('refreshImportedMatchDetail'/);
+  assert.match(source, /refreshImportedMatchDetail,/);
 });

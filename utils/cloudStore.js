@@ -93,6 +93,33 @@ async function withTeamAvatarSrc(team) {
   };
 }
 
+async function withMatchAvatarSrc(match, players = []) {
+  if (!match) return match;
+  const playerById = {};
+  players.forEach((player) => { playerById[player.id] = player; });
+  const resolvedByUrl = {};
+  const decorate = async (snapshot) => {
+    const current = playerById[snapshot.playerId || snapshot.id] || {};
+    const avatarUrl = snapshot.avatarUrl || current.avatarUrl || '';
+    let avatarSrc = snapshot.avatarSrc || '';
+    if (!avatarSrc && avatarUrl && avatarUrl === current.avatarUrl) {
+      avatarSrc = current.avatarSrc || '';
+    }
+    if (!avatarSrc && avatarUrl) {
+      if (!Object.prototype.hasOwnProperty.call(resolvedByUrl, avatarUrl)) {
+        resolvedByUrl[avatarUrl] = await getAvatarSrc(avatarUrl);
+      }
+      avatarSrc = resolvedByUrl[avatarUrl];
+    }
+    return { ...snapshot, avatarUrl, avatarSrc };
+  };
+  return {
+    ...match,
+    radiant: await Promise.all((match.radiant || []).map(decorate)),
+    dire: await Promise.all((match.dire || []).map(decorate))
+  };
+}
+
 async function withBootstrapAvatarSrc(data) {
   const players = await Promise.all((data.players || []).map(withAvatarSrc));
   const currentPlayer = await withAvatarSrc(data.currentPlayer);
@@ -283,6 +310,12 @@ async function previewImportedMatch(matchId) {
 
 async function confirmImportedMatch(matchId, radiantPlayerIds, direPlayerIds) {
   const match = await callApi('confirmImportedMatch', { matchId, radiantPlayerIds, direPlayerIds });
+  clearCache();
+  return match;
+}
+
+async function refreshImportedMatchDetail(id) {
+  const match = await callApi('refreshImportedMatchDetail', { id });
   clearCache();
   return match;
 }
@@ -501,7 +534,8 @@ function callLocal(action, payload) {
     localMatches = removeMatchById(localMatches, matchId);
     return { matchId };
   }
-  if (action === 'previewImportedMatch' || action === 'confirmImportedMatch') {
+  if (action === 'previewImportedMatch' || action === 'confirmImportedMatch'
+    || action === 'refreshImportedMatchDetail') {
     throw new Error('\u672c\u5730\u9884\u89c8\u4e0d\u652f\u6301\u62c9\u53d6 Dota \u6bd4\u8d5b\uff0c\u8bf7\u542f\u7528\u4e91\u5f00\u53d1');
   }
   throw new Error('Unknown local action: ' + action);
@@ -528,6 +562,7 @@ module.exports = {
   deleteMatchRecord,
   previewImportedMatch,
   confirmImportedMatch,
+  refreshImportedMatchDetail,
   runLeagueSyncNow,
   setLeagueSyncEnabled,
   retryLeagueSyncMatch,
@@ -536,6 +571,7 @@ module.exports = {
   uploadAvatarWithSrc,
   getAvatarSrc,
   withAvatarSrc,
+  withMatchAvatarSrc,
   cleanCloudErrorMessage,
   clearCache,
   canUseCloud

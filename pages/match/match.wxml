@@ -108,7 +108,11 @@
         >
           <view class="lineup-picker">
             <text class="lineup-slot">第 {{item.slot}} 位</text>
-            <text class="lineup-name">{{playerOptions[item.pickerIndex].label}}</text>
+            <image class="lineup-avatar" src="{{playerOptions[item.pickerIndex].avatarSrc}}" mode="aspectFill"></image>
+            <view class="lineup-choice">
+              <text class="lineup-name">{{playerOptions[item.pickerIndex].label}}</text>
+              <text wx:if="{{playerOptions[item.pickerIndex].id}}" class="lineup-score">自评分 {{playerOptions[item.pickerIndex].score}}</text>
+            </view>
           </view>
         </picker>
       </view>
@@ -127,7 +131,11 @@
         >
           <view class="lineup-picker">
             <text class="lineup-slot">第 {{item.slot}} 位</text>
-            <text class="lineup-name">{{playerOptions[item.pickerIndex].label}}</text>
+            <image class="lineup-avatar" src="{{playerOptions[item.pickerIndex].avatarSrc}}" mode="aspectFill"></image>
+            <view class="lineup-choice">
+              <text class="lineup-name">{{playerOptions[item.pickerIndex].label}}</text>
+              <text wx:if="{{playerOptions[item.pickerIndex].id}}" class="lineup-score">自评分 {{playerOptions[item.pickerIndex].score}}</text>
+            </view>
           </view>
         </picker>
       </view>
@@ -244,9 +252,11 @@
         <view class="player-name">{{item.title}}</view>
         <view class="player-meta">胜方 {{item.winner}}</view>
         <view class="match-source">{{item.sourceText}}</view>
+        <view wx:if="{{item.imported}}" class="player-meta">天辉 {{item.radiantKills || 0}} · 夜魇 {{item.direKills || 0}}</view>
+        <view wx:else class="player-meta">天辉自评 {{item.radiantScore}} · 夜魇自评 {{item.direScore}}</view>
       </view>
       <view class="match-actions">
-        <text class="badge">差 {{item.scoreGap}}</text>
+        <text class="badge">{{item.winner}}</text>
         <button
           wx:if="{{isAdmin}}"
           class="danger-btn mini-btn"

@@ -19,6 +19,10 @@ const {
   resolveActualLineup,
   applyActualLineupToPreview
 } = require('./actualLineup');
+const {
+  needsImportedDetailRepair,
+  mergeImportedMatchDetails
+} = require('./matchDetailRepair');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -891,15 +895,19 @@ async function recordRadiantWin(openid) {
   return recordMatchResult(openid, 'radiant');
 }
 
-async function previewImportedMatch(matchId) {
+async function loadImportedMatchSource(matchId) {
   const normalizedMatchId = normalizeMatchId(matchId);
-  const sourceResult = await loadMatchWithFallback({
+  return loadMatchWithFallback({
     matchId: normalizedMatchId,
     steamApiKey: String(process.env.STEAM_WEB_API_KEY || '').trim(),
     fetchOpenDota: (id) => fetchJson(`https://api.opendota.com/api/matches/${id}`),
     requestOpenDotaParse,
     fetchValve: fetchValveMatch
   });
+}
+
+async function previewImportedMatch(matchId) {
+  const sourceResult = await loadImportedMatchSource(matchId);
   const apiMatch = sourceResult.match;
   const players = (await db.collection('players').limit(100).get()).data;
   return buildImportedMatchPreview(apiMatch, players);
@@ -934,6 +942,25 @@ async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlaye
       ? teamIds(room.teams.radiant).concat(teamIds(room.teams.dire))
       : []
   }, { db });
+}
+
+async function refreshImportedMatchDetail(matchRecordId) {
+  const normalizedRecordId = normalizeMatchRecordId(matchRecordId);
+  const storedMatch = await getById('matches', normalizedRecordId);
+  if (!storedMatch || !storedMatch.imported) {
+    throw new Error('\u8fd9\u6761\u5bfc\u5165\u6218\u7ee9\u4e0d\u5b58\u5728');
+  }
+  if (!needsImportedDetailRepair(storedMatch)) {
+    return storedMatch;
+  }
+  const sourceResult = await loadImportedMatchSource(storedMatch.matchId);
+  const freshPreview = buildImportedMatchPreview(sourceResult.match, []);
+  const data = {
+    ...mergeImportedMatchDetails(storedMatch, freshPreview, sourceResult.source),
+    detailsRefreshedAt: db.serverDate()
+  };
+  await db.collection('matches').doc(storedMatch._id).update({ data });
+  return getById('matches', normalizedRecordId);
 }
 
 async function deleteMatchRecord(matchId) {
@@ -1077,6 +1104,9 @@ exports.main = async (event) => {
   }
   if (action === 'confirmImportedMatch') {
     return confirmImportedMatch(openid, event.matchId, event.radiantPlayerIds, event.direPlayerIds);
+  }
+  if (action === 'refreshImportedMatchDetail') {
+    return refreshImportedMatchDetail(event.id);
   }
   if (action === 'deleteMatchRecord') {
     return deleteMatchRecord(event.matchId);

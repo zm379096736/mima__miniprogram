@@ -3,7 +3,7 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildMatchDetail } = require('../utils/matchDetail');
+const { buildMatchDetail, needsImportedDetailRepair } = require('../utils/matchDetail');
 
 const players = [
   { id: 'r1', name: '天辉一号' },
@@ -42,18 +42,40 @@ test('imported match detail preserves KDA economy source and timing information'
   assert.equal(detail.dire[0].kdaText, '2 / 10 / 3');
   assert.equal(detail.radiant[0].goldPerMin, 640);
   assert.equal(detail.radiant[0].xpPerMin, 720);
+  assert.equal(detail.radiant[0].gpmText, '640');
+  assert.equal(detail.radiant[0].xpmText, '720');
+  assert.equal(detail.dire[0].gpmText, '--');
+  assert.equal(detail.dire[0].xpmText, '--');
   assert.equal(detail.sourceText, '联赛自动导入');
   assert.equal(detail.durationText, '50:10');
   assert.match(detail.startTimeText, /^\d{4}-\d{2}-\d{2} /);
   assert.equal(detail.imported, true);
 });
 
+test('legacy imported matches request one detail repair', () => {
+  const rows = Array.from({ length: 10 }, (_, index) => ({
+    playerId: `p${index + 1}`,
+    goldPerMin: 0,
+    xpPerMin: 0
+  }));
+  const legacy = { imported: true, radiant: rows.slice(0, 5), dire: rows.slice(5) };
+  assert.equal(needsImportedDetailRepair(legacy), true);
+  assert.equal(needsImportedDetailRepair({ ...legacy, detailsRefreshedAt: 'done' }), false);
+});
+
 test('match detail page renders source GPM and XPM', () => {
   const view = fs.readFileSync(path.join(__dirname, '../pages/match-detail/match-detail.wxml'), 'utf8');
   assert.match(view, /detail\.sourceText/);
   assert.match(view, /detail\.durationText/);
-  assert.match(view, /item\.goldPerMin/);
-  assert.match(view, /item\.xpPerMin/);
+  assert.match(view, /item\.heroImage/);
+  assert.match(view, /item\.avatarSrc/);
+  assert.match(view, /item\.gpmText/);
+  assert.match(view, /item\.xpmText/);
+  assert.match(view, /detail\.radiantScore/);
+  assert.match(view, /detail\.direScore/);
+  const page = fs.readFileSync(path.join(__dirname, '../pages/match-detail/match-detail.js'), 'utf8');
+  assert.match(page, /needsImportedDetailRepair/);
+  assert.match(page, /refreshImportedMatchDetail/);
 });
 
 test('history cards navigate to the match detail page', () => {

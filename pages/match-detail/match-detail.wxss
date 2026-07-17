@@ -3,7 +3,38 @@
 }
 
 .player-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
   padding: 14rpx 0;
+}
+
+.hero-portrait {
+  width: 88rpx;
+  height: 52rpx;
+  flex-shrink: 0;
+  border-radius: 6rpx;
+  background: #211c17;
+}
+
+.player-avatar {
+  width: 52rpx;
+  height: 52rpx;
+  flex-shrink: 0;
+  border: 2rpx solid rgba(244, 196, 48, 0.3);
+  border-radius: 50%;
+  background: #211c17;
+}
+
+.player-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-score {
+  margin-left: auto;
+  color: #d8c78f;
+  font-size: 22rpx;
 }
 
 .detail-meta,
