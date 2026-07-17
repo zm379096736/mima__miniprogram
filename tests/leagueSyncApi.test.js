@@ -37,7 +37,7 @@ function createDb(seed = {}, options = {}) {
               await options.afterDocumentGet({ ...details, data, exists: Boolean(data) });
             }
             if (!data) {
-              throw new Error('document.get:fail document not exists');
+              throw new Error(options.missingDocumentMessage || 'document.get:fail document not exists');
             }
             return { data };
           },
@@ -332,6 +332,19 @@ test('administrator can pause and resume the deterministic default sync state', 
 
   const resumed = await api.setLeagueSyncEnabled('admin', true);
   assert.equal(resumed.enabled, true);
+});
+
+test('first client state read initializes when cloud reports document does not exist', async () => {
+  const db = createDb({}, {
+    missingDocumentMessage: 'document.get:fail document with _id leagueSync does not exist'
+  });
+  const api = createApi(db);
+
+  const state = await api.getClientLeagueSyncState('player');
+
+  assert.equal(state.enabled, true);
+  assert.equal(state.leagueId, '20040');
+  assert.equal(db.state.system.leagueSync._id, 'leagueSync');
 });
 
 test('processing respects pause and a live five-minute lock', async () => {
