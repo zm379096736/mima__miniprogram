@@ -13,6 +13,7 @@ test('match page exposes administrator league sync controls', () => {
   assert.match(wxml, /bindtap="toggleLeagueSync"/);
   assert.match(wxml, /bindtap="retryLeagueSyncMatch"/);
   assert.match(wxml, /bindtap="openLeagueReview"/);
+  assert.match(wxml, /item\.leagueLabel/);
 });
 
 test('review queue supports lineup reconciliation and confirmation', () => {

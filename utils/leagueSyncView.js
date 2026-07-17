@@ -14,6 +14,12 @@ const REASON_TEXT = {
   incomplete_lineup: '比赛阵容不是完整的 5 对 5'
 };
 
+const DISCOVERY_SOURCE_TEXT = {
+  opendota: 'OpenDota',
+  valve: 'Valve',
+  seed: '已知比赛'
+};
+
 function cleanDisplayError(value) {
   const message = String(value || '')
     .replace(/https?:\/\/\S+/gi, '')
@@ -45,6 +51,9 @@ function decorateQueueRow(row) {
     reasonText: REASON_TEXT[row && row.reviewReason] || '',
     errorText: cleanDisplayError(row && row.error),
     matchedText: preview ? `已关联 ${Number(preview.matchedCount || 0)} / 10` : '',
+    leagueLabel: row && row.leagueName
+      ? `${row.leagueName} · ${DISCOVERY_SOURCE_TEXT[row.discoverySource] || '自动发现'}`
+      : '',
     canRetry: status === 'waiting_data' || status === 'failed',
     canReview: status === 'needs_review' && Boolean(preview)
   };
@@ -69,7 +78,9 @@ function buildLeagueSyncView(state = {}) {
 }
 
 function matchSourceText(match = {}) {
-  if (match.source === 'league-auto' || match.lineupSource === 'league-auto') return '联赛自动导入';
+  if (match.source === 'league-auto' || match.lineupSource === 'league-auto') {
+    return match.leagueName ? `${match.leagueName} · 自动导入` : '联赛自动导入';
+  }
   if (match.imported || match.source === 'manual-import') return '比赛 ID 导入';
   return '管理员手动录入';
 }

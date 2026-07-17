@@ -1,4 +1,6 @@
-const LEAGUE_ID = '20040';
+const { LEAGUES, FIJI_SEED_MATCH_IDS } = require('./leagueConfig');
+
+const LEAGUE_ID = LEAGUES[0].id;
 const BATCH_SIZE = 3;
 
 function authorizationError() {
@@ -29,8 +31,35 @@ function createLeagueSyncRunner(options) {
       return { skipped: true, reason: 'paused' };
     }
 
-    const payload = await fetchLeagueMatches(LEAGUE_ID);
-    await callApi('discoverLeagueMatches', { payload });
+    for (const league of LEAGUES) {
+      try {
+        const payload = await fetchLeagueMatches(league.id);
+        await callApi('discoverLeagueMatches', {
+          payload,
+          metadata: {
+            leagueId: league.id,
+            leagueName: league.name,
+            discoverySource: 'opendota'
+          }
+        });
+      } catch (error) {
+        // Continue with the remaining discovery sources and queue processing.
+      }
+    }
+    const fiji = LEAGUES.find((league) => league.id === '19608');
+    await callApi('discoverLeagueMatches', {
+      payload: FIJI_SEED_MATCH_IDS.map((matchId) => ({ match_id: matchId })),
+      metadata: {
+        leagueId: fiji.id,
+        leagueName: fiji.name,
+        discoverySource: 'seed'
+      }
+    });
+    try {
+      await callApi('discoverValveLeagueMatches', { leagueId: fiji.id });
+    } catch (error) {
+      // The deterministic seed and existing queue still remain processable.
+    }
     return callApi('processLeagueQueue', { batchSize: BATCH_SIZE });
   };
 }

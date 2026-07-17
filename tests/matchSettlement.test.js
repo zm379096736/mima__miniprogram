@@ -183,6 +183,19 @@ test('buildSettlement defaults manual imports to the reconciled source metadata'
   assert.equal(result.playerUpdates.find((update) => update.id === 'd1').points, 7);
 });
 
+test('buildSettlement stores league name and discovery source when supplied', () => {
+  const preview = previewFixture();
+  const result = buildSettlement(preview, playersFor(preview), {
+    source: 'league-auto',
+    leagueId: '19608',
+    leagueName: '斐济杯',
+    discoverySource: 'valve'
+  });
+  assert.equal(result.match.leagueId, '19608');
+  assert.equal(result.match.leagueName, '斐济杯');
+  assert.equal(result.match.discoverySource, 'valve');
+});
+
 test('buildSettlement rejects incomplete duplicate and missing player lineups', () => {
   const preview = previewFixture({
     radiant: Array.from({ length: 4 }, (_, index) => ({ playerId: `r${index + 1}` })),

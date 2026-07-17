@@ -205,10 +205,13 @@ test('discovery uses normalized IDs and preserves imported and review rows', asy
     { match_id: '700003' },
     { match_id: 700001 },
     { match_id: 'invalid' }
-  ]);
+  ], { leagueId: '19608', leagueName: '斐济杯', discoverySource: 'opendota' });
 
   assert.deepEqual(result, { discovered: 3, inserted: 1 });
   assert.equal(db.state.leagueSyncQueue['700001'].status, 'discovered');
+  assert.equal(db.state.leagueSyncQueue['700001'].leagueId, '19608');
+  assert.equal(db.state.leagueSyncQueue['700001'].leagueName, '斐济杯');
+  assert.equal(db.state.leagueSyncQueue['700001'].discoverySource, 'opendota');
   assert.equal(db.state.leagueSyncQueue['700002'].importedAt, 'kept');
   assert.deepEqual(db.state.leagueSyncQueue['700003'].preview, { chosen: true });
 });
@@ -573,6 +576,35 @@ test('processing always settles with the literal default league id', async () =>
   await api.processLeagueQueue(TOKEN, 1);
 
   assert.deepEqual(metadata, [{ source: 'league-auto', leagueId: '20040' }]);
+});
+
+test('processing settles with league metadata stored on the queue row', async () => {
+  const db = createDb({
+    system: { leagueSync: { _id: 'leagueSync', enabled: true } },
+    leagueSyncQueue: {
+      8900989622: {
+        _id: '8900989622',
+        matchId: '8900989622',
+        status: 'discovered',
+        leagueId: '19608',
+        leagueName: '斐济杯',
+        discoverySource: 'seed'
+      }
+    }
+  });
+  const metadata = [];
+  const api = createApi(db, {
+    settleImportedMatch: async (preview, value) => metadata.push(value)
+  });
+
+  await api.processLeagueQueue(TOKEN, 1);
+
+  assert.deepEqual(metadata, [{
+    source: 'league-auto',
+    leagueId: '19608',
+    leagueName: '斐济杯',
+    discoverySource: 'seed'
+  }]);
 });
 
 test('authoritative settlement converges after the first queue completion write fails', async () => {

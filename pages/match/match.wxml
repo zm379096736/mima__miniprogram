@@ -24,6 +24,7 @@
       <view wx:for="{{leagueSyncView.queue}}" wx:key="matchId" class="sync-queue-row">
         <view class="sync-queue-main">
           <view class="player-name">比赛 {{item.matchId}}</view>
+          <view wx:if="{{item.leagueLabel}}" class="match-source">{{item.leagueLabel}}</view>
           <view class="player-meta">{{item.statusText}} {{item.reasonText}}</view>
           <view wx:if="{{item.matchedText}}" class="player-meta">{{item.matchedText}}</view>
           <view wx:if="{{item.errorText}}" class="sync-row-error">{{item.errorText}}</view>

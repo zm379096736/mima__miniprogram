@@ -10,6 +10,12 @@ const { requestJson } = require('./httpJson');
 const { settleImportedMatch } = require('./matchSettlement');
 const { normalizeLeagueMatchIds } = require('./leagueSyncCore');
 const { createLeagueSyncApi } = require('./leagueSyncApi');
+const { assertLeagueSyncToken } = require('./leagueSyncState');
+const { leagueById } = require('./leagueConfig');
+const {
+  buildValveLeagueHistoryUrl,
+  normalizeValveLeagueMatches
+} = require('./valveLeagueHistory');
 const {
   buildTemporaryPlayer,
   findClaimableTemporaryPlayer,
@@ -923,6 +929,21 @@ const leagueSyncApi = createLeagueSyncApi({
   getPlayers: async () => (await db.collection('players').limit(100).get()).data
 });
 
+async function discoverValveLeagueMatches(token, leagueId) {
+  assertLeagueSyncToken(token);
+  const league = leagueById(leagueId);
+  if (!league || league.id !== '19608') {
+    throw new Error('Unsupported Valve league ID');
+  }
+  const apiKey = String(process.env.STEAM_WEB_API_KEY || '').trim();
+  const payload = await fetchJson(buildValveLeagueHistoryUrl(apiKey, league.id, 100));
+  return leagueSyncApi.discoverLeagueMatches(
+    token,
+    normalizeValveLeagueMatches(payload),
+    { leagueId: league.id, leagueName: league.name, discoverySource: 'valve' }
+  );
+}
+
 async function confirmImportedMatch(openid, matchId, radiantPlayerIds, direPlayerIds) {
   assertAdmin(openid, '只有管理员可以导入比赛结果');
   const preview = await previewImportedMatch(matchId);
@@ -1032,7 +1053,11 @@ exports.main = async (event) => {
     return leagueSyncApi.getLeagueSyncStateInternal(event.token);
   }
   if (action === 'discoverLeagueMatches') {
-    return leagueSyncApi.discoverLeagueMatches(event.token, event.payload || event.matches || []);
+    return leagueSyncApi.discoverLeagueMatches(
+      event.token,
+      event.payload || event.matches || [],
+      event.metadata || {}
+    );
   }
   if (action === 'processLeagueQueue') {
     return leagueSyncApi.processLeagueQueue(event.token, event.batchSize);
@@ -1104,6 +1129,9 @@ exports.main = async (event) => {
   }
   if (action === 'confirmImportedMatch') {
     return confirmImportedMatch(openid, event.matchId, event.radiantPlayerIds, event.direPlayerIds);
+  }
+  if (action === 'discoverValveLeagueMatches') {
+    return discoverValveLeagueMatches(event.token, event.leagueId);
   }
   if (action === 'refreshImportedMatchDetail') {
     return refreshImportedMatchDetail(event.id);

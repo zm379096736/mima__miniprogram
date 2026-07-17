@@ -11,6 +11,9 @@ test('formats enabled sync state and pending review rows', () => {
     queuePreview: [
       {
         matchId: '7002',
+        leagueId: '19608',
+        leagueName: '斐济杯',
+        discoverySource: 'valve',
         status: 'needs_review',
         reviewReason: 'unmatched_players',
         preview: { matchedCount: 9 }
@@ -25,6 +28,7 @@ test('formats enabled sync state and pending review rows', () => {
   assert.equal(view.queue[0].statusText, '待管理员确认');
   assert.equal(view.queue[0].matchedText, '已关联 9 / 10');
   assert.equal(view.queue[0].canReview, true);
+  assert.equal(view.queue[0].leagueLabel, '斐济杯 · Valve');
   assert.equal(view.queue.length, 1);
 });
 
@@ -43,6 +47,7 @@ test('formats retryable failures without leaking raw upstream details', () => {
 
 test('labels automatic, imported, and manual match sources', () => {
   assert.equal(matchSourceText({ source: 'league-auto' }), '联赛自动导入');
+  assert.equal(matchSourceText({ source: 'league-auto', leagueName: '斐济杯' }), '斐济杯 · 自动导入');
   assert.equal(matchSourceText({ source: 'manual-import', imported: true }), '比赛 ID 导入');
   assert.equal(matchSourceText({ source: 'manual-entry' }), '管理员手动录入');
 });

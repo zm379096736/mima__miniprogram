@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { classifyPreview } = require('./leagueSyncCore');
+const { normalizeLeagueMetadata } = require('./leagueConfig');
 const {
   DEFAULT_LEAGUE_ID,
   PENDING_STATUSES,
@@ -60,6 +61,9 @@ function safeQueueRow(row) {
       : [],
     updatedAt: row && row.updatedAt || null
   };
+  if (row && row.leagueId) safe.leagueId = String(row.leagueId);
+  if (row && row.leagueName) safe.leagueName = String(row.leagueName);
+  if (row && row.discoverySource) safe.discoverySource = String(row.discoverySource);
   if (row && row.preview) {
     safe.preview = normalizeStoredPreview(row.preview);
   }
@@ -163,10 +167,11 @@ function createLeagueSyncApi(dependencies) {
     return safeState(await ensureLeagueSyncState());
   }
 
-  async function discoverLeagueMatches(token, payload) {
+  async function discoverLeagueMatches(token, payload, metadata) {
     assertLeagueSyncToken(token);
     await ensureLeagueSyncState();
     const matchIds = normalizeLeagueMatchIds(payload);
+    const leagueMetadata = normalizeLeagueMetadata(metadata);
     let inserted = 0;
     for (const matchId of matchIds) {
       inserted += await db.runTransaction(async (transaction) => {
@@ -176,6 +181,7 @@ function createLeagueSyncApi(dependencies) {
         await reference.set({
           data: {
             matchId,
+            ...leagueMetadata,
             status: 'discovered',
             attempts: 0,
             error: '',
@@ -189,6 +195,17 @@ function createLeagueSyncApi(dependencies) {
       });
     }
     return { discovered: matchIds.length, inserted };
+  }
+
+  function settlementMetadata(row, players) {
+    const metadata = {
+      source: 'league-auto',
+      leagueId: String(row && row.leagueId || DEFAULT_LEAGUE_ID)
+    };
+    if (row && row.leagueName) metadata.leagueName = String(row.leagueName);
+    if (row && row.discoverySource) metadata.discoverySource = String(row.discoverySource);
+    if (players) metadata.players = players;
+    return metadata;
   }
 
   async function setLeagueSyncEnabled(openid, enabled) {
@@ -318,10 +335,7 @@ function createLeagueSyncApi(dependencies) {
         return { status: 'needs_review' };
       }
 
-      await settleImportedMatch(preview, {
-        source: 'league-auto',
-        leagueId: DEFAULT_LEAGUE_ID
-      });
+      await settleImportedMatch(preview, settlementMetadata(row));
       await reference.update({
         data: {
           ...importedQueueData(now()),
@@ -454,11 +468,7 @@ function createLeagueSyncApi(dependencies) {
       players
     );
     try {
-      await settleImportedMatch(reconciled, {
-        source: 'league-auto',
-        leagueId: DEFAULT_LEAGUE_ID,
-        players
-      });
+      await settleImportedMatch(reconciled, settlementMetadata(row, players));
       await queueReference(matchId).update({
         data: {
           ...importedQueueData(now()),

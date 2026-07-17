@@ -68,6 +68,8 @@ function buildSettlement(preview, players, metadata = {}) {
     participantIds,
     winnerIds
   };
+  if (metadata.leagueName) match.leagueName = String(metadata.leagueName);
+  if (metadata.discoverySource) match.discoverySource = String(metadata.discoverySource);
   return { match, playerUpdates };
 }
 
