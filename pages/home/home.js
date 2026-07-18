@@ -1,6 +1,7 @@
 const { getBootstrap } = require('../../utils/cloudStore');
 const { positionText } = require('../../utils/playerProfile');
 const { sortPlayersByPoints } = require('../../utils/playerRanking');
+const { buildSponsorMarquee } = require('../../utils/sponsorMarquee');
 
 Page({
   data: {
@@ -8,7 +9,8 @@ Page({
     waitlistCount: 0,
     leader: {},
     leaderName: '暂无',
-    topPlayers: []
+    topPlayers: [],
+    sponsorMarquee: buildSponsorMarquee([])
   },
 
   async onShow() {
@@ -32,7 +34,8 @@ Page({
         waitlistCount: (data.room.waitlist || []).length,
         leader: players[0] || {},
         leaderName: players[0] ? players[0].name : '暂无',
-        topPlayers: players.slice(0, 3)
+        topPlayers: players.slice(0, 3),
+        sponsorMarquee: buildSponsorMarquee(data.sponsors)
       });
     } catch (error) {
       wx.showToast({ title: error.message, icon: 'none' });

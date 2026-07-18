@@ -1,8 +1,25 @@
 <view class="screen">
-  <view class="hero">
-    <view class="eyebrow">MIMA DOTA2 INHOUSE</view>
-    <view class="title">秘马群内战控制台</view>
-    <view class="subtitle">今晚开 C、自动分队、选手卡、积分榜和战绩录入都放在这里。</view>
+  <view class="hero sponsor-hero">
+    <view class="sponsor-copy">
+      <view class="eyebrow">THANKS TO OUR SPONSORS</view>
+      <view class="title">感谢每一位秘马赞助商</view>
+      <view class="subtitle">每一次支持，都让秘马内战继续开 C。</view>
+    </view>
+    <view wx:if="{{sponsorMarquee.hasSponsors}}" class="sponsor-marquee">
+      <view class="sponsor-lane lane-a">
+        <view class="sponsor-track">
+          <view class="sponsor-group"><text wx:for="{{sponsorMarquee.laneA}}" wx:key="id" class="sponsor-chip">{{item.name}}</text></view>
+          <view class="sponsor-group"><text wx:for="{{sponsorMarquee.laneA}}" wx:key="id" class="sponsor-chip">{{item.name}}</text></view>
+        </view>
+      </view>
+      <view class="sponsor-lane lane-b">
+        <view class="sponsor-track">
+          <view class="sponsor-group"><text wx:for="{{sponsorMarquee.laneB}}" wx:key="id" class="sponsor-chip">{{item.name}}</text></view>
+          <view class="sponsor-group"><text wx:for="{{sponsorMarquee.laneB}}" wx:key="id" class="sponsor-chip">{{item.name}}</text></view>
+        </view>
+      </view>
+    </view>
+    <view wx:else class="sponsor-empty">感谢每一位支持秘马内战的朋友</view>
   </view>
 
   <view class="section grid-3">
