@@ -456,29 +456,16 @@ function withTeamAvatarSrc(room, players) {
 }
 
 async function getSponsorConfig() {
-  const stored = await readSponsorConfig(db.collection('system').doc(SPONSOR_CONFIG_ID));
+  const stored = await findSponsorConfig(db);
   return {
     id: SPONSOR_CONFIG_ID,
     sponsors: normalizeSponsors(stored && stored.sponsors)
   };
 }
 
-function isMissingSponsorConfigError(error) {
-  const message = String(error && (error.errMsg || error.message || error)).toLowerCase();
-  return message.includes('document.get:fail document not exists')
-    || message.includes('document_not_exist')
-    || message.includes('document not exists')
-    || /document\b.*\bdoes not exist\b/.test(message);
-}
-
-async function readSponsorConfig(reference) {
-  try {
-    const result = await reference.get();
-    return result && result.data ? result.data : null;
-  } catch (error) {
-    if (isMissingSponsorConfigError(error)) return null;
-    throw error;
-  }
+async function findSponsorConfig(writer) {
+  const result = await writer.collection('system').where({ id: SPONSOR_CONFIG_ID }).limit(1).get();
+  return result.data[0] || null;
 }
 
 async function adminAddSponsor(openid, name) {
@@ -493,8 +480,8 @@ async function adminDeleteSponsor(openid, name) {
 
 async function mutateSponsorConfig(mutate) {
   return db.runTransaction(async (transaction) => {
-    const sponsorRef = transaction.collection('system').doc(SPONSOR_CONFIG_ID);
-    const stored = await readSponsorConfig(sponsorRef);
+    const stored = await findSponsorConfig(transaction);
+    const sponsorRef = transaction.collection('system').doc(stored ? stored._id : SPONSOR_CONFIG_ID);
     const sponsors = normalizeSponsors(mutate(normalizeSponsors(stored && stored.sponsors)));
     const updatedAt = db.serverDate();
     if (stored) {

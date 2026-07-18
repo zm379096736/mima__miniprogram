@@ -15,6 +15,17 @@ test('cloud store exposes sponsor administration wrappers', () => {
   assert.match(source, /callApi\('adminDeleteSponsor', \{ name \}\)/);
 });
 
+test('local bootstrap exposes administrator controls and sponsor data', async () => {
+  const cloudStore = require('../utils/cloudStore');
+  assert.equal(cloudStore.canUseCloud(), false);
+
+  const bootstrap = await cloudStore.getBootstrap(true);
+
+  assert.equal(bootstrap.isAdmin, true);
+  assert.equal(bootstrap.currentPlayer.isAdmin, true);
+  assert.ok(Array.isArray(bootstrap.sponsors));
+});
+
 test('administrator panel adds and confirms deletion of sponsor names', () => {
   const page = read('pages/room/room.js');
   const view = read('pages/room/room.wxml');

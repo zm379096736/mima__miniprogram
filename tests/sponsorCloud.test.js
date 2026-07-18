@@ -12,6 +12,16 @@ test('bootstrap returns normalized shared sponsors', () => {
   assert.match(source, /sponsors: sponsorConfig\.sponsors/);
 });
 
+test('sponsor configuration resolves the logical id before reading or mutating', () => {
+  const readStart = source.indexOf('async function getSponsorConfig');
+  const helperStart = source.indexOf('async function findSponsorConfig');
+  const writeStart = source.indexOf('async function mutateSponsorConfig');
+  const writeEnd = source.indexOf('async function bootstrap');
+  assert.match(source.slice(helperStart, writeStart), /writer\.collection\('system'\)\.where\(\{ id: SPONSOR_CONFIG_ID \}\)\.limit\(1\)\.get\(\)/);
+  assert.match(source.slice(readStart, helperStart), /const stored = await findSponsorConfig\(db\)/);
+  assert.match(source.slice(writeStart, writeEnd), /const stored = await findSponsorConfig\(transaction\)/);
+});
+
 test('sponsor writes require administrator permission', () => {
   const start = source.indexOf('async function adminAddSponsor');
   const end = source.indexOf('async function bootstrap');
@@ -24,8 +34,7 @@ test('sponsor writes require administrator permission', () => {
   assert.match(block, /addSponsor/);
   assert.match(block, /removeSponsor/);
   assert.match(block, /db\.runTransaction\(async \(transaction\) =>/);
-  assert.match(block, /const sponsorRef = transaction\.collection\('system'\)\.doc\(SPONSOR_CONFIG_ID\)/);
-  assert.match(block, /await readSponsorConfig\(sponsorRef\)/);
+  assert.match(block, /transaction\.collection\('system'\)\.doc\(stored \? stored\._id : SPONSOR_CONFIG_ID\)/);
   assert.match(block, /await sponsorRef\.(?:set|update)\(/);
   assert.match(source, /action === 'adminAddSponsor'/);
   assert.match(source, /action === 'adminDeleteSponsor'/);

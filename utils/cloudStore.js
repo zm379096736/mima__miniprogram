@@ -160,11 +160,12 @@ function localBootstrap() {
   }
   return {
     openid: 'p1',
-    currentPlayer: localCurrentPlayer(),
+    currentPlayer: { ...localCurrentPlayer(), isAdmin: true },
     players: clone(localPlayers),
     room: clone(localRoom),
     matches: clone(localMatches),
-    sponsors: clone(localSponsors)
+    sponsors: clone(localSponsors),
+    isAdmin: true
   };
 }
 
