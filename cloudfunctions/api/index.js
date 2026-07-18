@@ -1,5 +1,10 @@
 const cloud = require('wx-server-sdk');
 const { isAdminOpenid, assertAdmin } = require('./adminAuth');
+const {
+  normalizeSponsors,
+  addSponsor,
+  removeSponsor
+} = require('./sponsorConfig');
 const { needsPigeonReset } = require('./pigeonReset');
 const { uniqueAvatarFileIds, applyAvatarTempUrls } = require('./avatarUrls');
 const { scoreAfterMatch, scoreAfterRollback } = require('./matchScoring');
@@ -36,6 +41,7 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
 const PIGEON_RESET_VERSION = 1;
+const SPONSOR_CONFIG_ID = 'sponsors';
 
 function emptyVotes() {
   return { mvp: {}, touch: {} };
@@ -449,11 +455,70 @@ function withTeamAvatarSrc(room, players) {
   };
 }
 
+async function getSponsorConfig() {
+  const stored = await readSponsorConfig(db.collection('system').doc(SPONSOR_CONFIG_ID));
+  return {
+    id: SPONSOR_CONFIG_ID,
+    sponsors: normalizeSponsors(stored && stored.sponsors)
+  };
+}
+
+function isMissingSponsorConfigError(error) {
+  const message = String(error && (error.errMsg || error.message || error)).toLowerCase();
+  return message.includes('document.get:fail document not exists')
+    || message.includes('document_not_exist')
+    || message.includes('document not exists')
+    || /document\b.*\bdoes not exist\b/.test(message);
+}
+
+async function readSponsorConfig(reference) {
+  try {
+    const result = await reference.get();
+    return result && result.data ? result.data : null;
+  } catch (error) {
+    if (isMissingSponsorConfigError(error)) return null;
+    throw error;
+  }
+}
+
+async function adminAddSponsor(openid, name) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u6dfb\u52a0\u8d5e\u52a9\u5546');
+  return mutateSponsorConfig((sponsors) => addSponsor(sponsors, name));
+}
+
+async function adminDeleteSponsor(openid, name) {
+  assertAdmin(openid, '\u53ea\u6709\u7ba1\u7406\u5458\u53ef\u4ee5\u5220\u9664\u8d5e\u52a9\u5546');
+  return mutateSponsorConfig((sponsors) => removeSponsor(sponsors, name));
+}
+
+async function mutateSponsorConfig(mutate) {
+  return db.runTransaction(async (transaction) => {
+    const sponsorRef = transaction.collection('system').doc(SPONSOR_CONFIG_ID);
+    const stored = await readSponsorConfig(sponsorRef);
+    const sponsors = normalizeSponsors(mutate(normalizeSponsors(stored && stored.sponsors)));
+    const updatedAt = db.serverDate();
+    if (stored) {
+      await sponsorRef.update({ data: { sponsors, updatedAt } });
+    } else {
+      await sponsorRef.set({
+        data: {
+          id: SPONSOR_CONFIG_ID,
+          sponsors,
+          createdAt: updatedAt,
+          updatedAt
+        }
+      });
+    }
+    return sponsors;
+  });
+}
+
 async function bootstrap(openid) {
   const currentPlayer = await ensureCurrentPlayer(openid);
   let room = await ensureRoom();
   room = await resetPigeonStatsOnce(openid, room);
   await ensureMatches();
+  const sponsorConfig = await getSponsorConfig();
   const players = await withPlayerAvatarSrc((await db.collection('players').limit(100).get()).data.map((player) => ({
     ...player,
     points: Number(player.points || 0)
@@ -469,6 +534,7 @@ async function bootstrap(openid) {
     room,
     matches,
     isAdmin: isAdminOpenid(openid),
+    sponsors: sponsorConfig.sponsors,
     leagueSync
   };
 }
@@ -1096,6 +1162,12 @@ exports.main = async (event) => {
   }
   if (action === 'adminCreateTemporaryPlayer') {
     return adminCreateTemporaryPlayer(openid, event.form || {});
+  }
+  if (action === 'adminAddSponsor') {
+    return adminAddSponsor(openid, event.name);
+  }
+  if (action === 'adminDeleteSponsor') {
+    return adminDeleteSponsor(openid, event.name);
   }
   if (action === 'joinRoom') {
     return joinRoom(openid);
