@@ -16,6 +16,7 @@ let cache = null;
 let localPlayers = JSON.parse(JSON.stringify(seed.players));
 let localRoom = JSON.parse(JSON.stringify(seed.room));
 let localMatches = JSON.parse(JSON.stringify(seed.matches));
+let localSponsors = [];
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -162,7 +163,8 @@ function localBootstrap() {
     currentPlayer: localCurrentPlayer(),
     players: clone(localPlayers),
     room: clone(localRoom),
-    matches: clone(localMatches)
+    matches: clone(localMatches),
+    sponsors: clone(localSponsors)
   };
 }
 
@@ -221,6 +223,18 @@ async function adminRemoveTodaySignup(playerId) {
   const room = await callApi('adminRemoveSignup', { playerId });
   clearCache();
   return room;
+}
+
+async function adminAddSponsor(name) {
+  const sponsors = await callApi('adminAddSponsor', { name });
+  clearCache();
+  return sponsors;
+}
+
+async function adminDeleteSponsor(name) {
+  const sponsors = await callApi('adminDeleteSponsor', { name });
+  clearCache();
+  return sponsors;
 }
 
 async function saveTodayRoom(room) {
@@ -547,6 +561,21 @@ function callLocal(action, payload) {
     localMatches = removeMatchById(localMatches, matchId);
     return { matchId };
   }
+  if (action === 'adminAddSponsor') {
+    const name = String(payload.name || '').trim();
+    if (!name) throw new Error('\u8d5e\u52a9\u5546\u540d\u5b57\u4e0d\u80fd\u4e3a\u7a7a');
+    if (Array.from(name).length > 20) throw new Error('\u8d5e\u52a9\u5546\u540d\u5b57\u4e0d\u80fd\u8d85\u8fc7 20 \u4e2a\u5b57');
+    if (localSponsors.includes(name)) throw new Error('\u8fd9\u4f4d\u8d5e\u52a9\u5546\u5df2\u7ecf\u5728\u540d\u5355\u4e2d');
+    if (localSponsors.length >= 50) throw new Error('\u6700\u591a\u6dfb\u52a0 50 \u4f4d\u8d5e\u52a9\u5546');
+    localSponsors = localSponsors.concat(name);
+    return clone(localSponsors);
+  }
+  if (action === 'adminDeleteSponsor') {
+    const name = String(payload.name || '').trim();
+    if (!localSponsors.includes(name)) throw new Error('\u6ca1\u6709\u627e\u5230\u8fd9\u4f4d\u8d5e\u52a9\u5546');
+    localSponsors = localSponsors.filter((item) => item !== name);
+    return clone(localSponsors);
+  }
   if (action === 'previewImportedMatch' || action === 'confirmImportedMatch'
     || action === 'refreshImportedMatchDetail') {
     throw new Error('\u672c\u5730\u9884\u89c8\u4e0d\u652f\u6301\u62c9\u53d6 Dota \u6bd4\u8d5b\uff0c\u8bf7\u542f\u7528\u4e91\u5f00\u53d1');
@@ -561,6 +590,8 @@ module.exports = {
   leaveTodayRoom,
   resetTodayRoomSignups,
   adminRemoveTodaySignup,
+  adminAddSponsor,
+  adminDeleteSponsor,
   saveTodayRoom,
   updateTodayRoomStartTime,
   adminUpdatePlayerScore,

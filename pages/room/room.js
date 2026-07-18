@@ -4,6 +4,8 @@ const {
   leaveTodayRoom,
   resetTodayRoomSignups,
   adminRemoveTodaySignup,
+  adminAddSponsor,
+  adminDeleteSponsor,
   adminUpdatePlayerScore,
   adminUpdatePlayerSteamIds,
   adminSwapTeamPlayers,
@@ -71,6 +73,8 @@ Page({
     startTime: '21:30',
     signups: [],
     waitlist: [],
+    sponsors: [],
+    sponsorName: '',
     adminPlayers: [],
     adminPlayerNames: [],
     adminPlayerIndex: 0,
@@ -138,6 +142,7 @@ Page({
         startTime: data.room.startTime || '21:30',
         signups,
         waitlist,
+        sponsors: data.sponsors || [],
         adminPlayers,
         adminPlayerNames: adminPlayers.map((player) => `${player.name}（${player.score}分）`),
         adminPlayerIndex: selectedAdminIndex,
@@ -257,6 +262,43 @@ Page({
       adminPlayerId: player.id,
       adminScore: String(player.score),
       adminSteamIds: (player.steamIds || []).join(', ') || player.steamId || ''
+    });
+  },
+
+  onSponsorNameInput(event) {
+    this.setData({ sponsorName: event.detail.value });
+  },
+
+  async addSponsor() {
+    if (!this.data.isAdmin) return;
+    try {
+      await adminAddSponsor(this.data.sponsorName);
+      this.setData({ sponsorName: '' });
+      await this.loadRoom();
+      wx.showToast({ title: '赞助商已添加', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message, icon: 'none' });
+    }
+  },
+
+  deleteSponsor(event) {
+    if (!this.data.isAdmin) return;
+    const name = event.currentTarget.dataset.name;
+    wx.showModal({
+      title: '删除赞助商',
+      content: `确定从感谢名单中删除“${name}”吗？`,
+      confirmText: '删除',
+      confirmColor: '#e63946',
+      success: async (result) => {
+        if (!result.confirm) return;
+        try {
+          await adminDeleteSponsor(name);
+          await this.loadRoom();
+          wx.showToast({ title: '已删除', icon: 'success' });
+        } catch (error) {
+          wx.showToast({ title: error.message, icon: 'none' });
+        }
+      }
     });
   },
 

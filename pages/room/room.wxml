@@ -52,6 +52,21 @@
         <button class="primary-btn" bindtap="saveAdminPlayerSteamIds" disabled="{{!adminPlayerId}}">保存 Steam ID</button>
       </view>
     </view>
+
+    <view class="sponsor-admin">
+      <view class="section-title">赞助商管理</view>
+      <view class="sponsor-add-row">
+        <input class="input sponsor-input" maxlength="20" value="{{sponsorName}}" bindinput="onSponsorNameInput" placeholder="输入赞助商名字" />
+        <button class="primary-btn sponsor-add-btn" bindtap="addSponsor">添加</button>
+      </view>
+      <view wx:if="{{sponsors.length}}" class="sponsor-list">
+        <view wx:for="{{sponsors}}" wx:key="*this" class="sponsor-admin-row">
+          <text class="sponsor-admin-name">{{item}}</text>
+          <button class="remove-player-btn" data-name="{{item}}" bindtap="deleteSponsor">删除</button>
+        </view>
+      </view>
+      <view wx:else class="subtitle">还没有添加赞助商。</view>
+    </view>
   </view>
 
   <view class="section panel signup-panel">
